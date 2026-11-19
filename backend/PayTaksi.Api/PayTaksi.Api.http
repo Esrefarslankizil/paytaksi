@@ -1,0 +1,6 @@
+@PayTaksi.Api_HostAddress = http://localhost:5019
+
+GET {{PayTaksi.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

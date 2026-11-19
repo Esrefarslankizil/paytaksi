@@ -877,18 +877,39 @@ export default function StaysiftHero(props: HeroProps) {
     const [selectedTab, setSelectedTab] = React.useState<"wallet" | "guest">("wallet")
     const [walletAmount, setWalletAmount] = React.useState(250)
     const [orderSuccess, setOrderSuccess] = React.useState(false)
+    const [orderMode, setOrderMode] = React.useState<"member" | "cash">("member")
+    const [callStep, setCallStep] = React.useState<"choose" | "cash-phone">("choose")
+    const [cashPhone, setCashPhone] = React.useState("")
+    const [phoneErr, setPhoneErr] = React.useState<string | null>(null)
+    const [searchWarn, setSearchWarn] = React.useState<string | null>(null)
+    const fromTouchedRef = useRef(false)
+    const whereTouchedRef = useRef(false)
     const menuWrapRef = useRef<HTMLDivElement>(null)
     const [, force] = React.useState(0)
+    const compactNav = narrow || mid
+
+    useEffect(() => {
+        if (!compactNav && menuOpen) setMenuOpen(false)
+    }, [compactNav, menuOpen])
 
     useEffect(() => {
         if (!menuOpen) return
-        const handleDown = (e: MouseEvent) => {
+        const handleDown = (e: MouseEvent | TouchEvent) => {
             if (menuWrapRef.current && !menuWrapRef.current.contains(e.target as Node)) {
                 setMenuOpen(false)
             }
         }
+        const handleKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") setMenuOpen(false)
+        }
         window.addEventListener("mousedown", handleDown)
-        return () => window.removeEventListener("mousedown", handleDown)
+        window.addEventListener("touchstart", handleDown, { passive: true })
+        window.addEventListener("keydown", handleKey)
+        return () => {
+            window.removeEventListener("mousedown", handleDown)
+            window.removeEventListener("touchstart", handleDown)
+            window.removeEventListener("keydown", handleKey)
+        }
     }, [menuOpen])
     const activate = () => {
         const US = userRef.current
@@ -914,11 +935,11 @@ export default function StaysiftHero(props: HeroProps) {
         }
         US.prev = ri
         US.flyT = now // Uçuş ve mavi rota yayını (arc) anında baştan tetikle
-        US.cardClosed = false
+        if (narrowRef.current) US.cardClosed = true
         const inp = uiRef.current.fromInput
         if (inp) inp.value = label || REGIONS[ri].name
-        const whereInp = uiRef.current.whereInput
-        if (whereInp && REGIONS[US.region]) whereInp.value = REGIONS[US.region].name
+        fromTouchedRef.current = true
+        setSearchWarn(null)
         setSug([])
     }
     const goRegion = (ri: number) => {
@@ -934,6 +955,8 @@ export default function StaysiftHero(props: HeroProps) {
         }
         const inp = uiRef.current.whereInput
         if (inp) inp.value = REGIONS[ri].name
+        whereTouchedRef.current = true
+        setSearchWarn(null)
         setSug([])
     }
 
@@ -952,10 +975,12 @@ export default function StaysiftHero(props: HeroProps) {
 
     const onFrom = (e: any) => {
         activate()
+        userRef.current.cardClosed = true
         searchPlaces(e.target.value, "from")
     }
     const onWhere = (e: any) => {
         activate()
+        userRef.current.cardClosed = true
         searchPlaces(e.target.value, "to")
     }
     const swapLocations = () => {
@@ -1021,8 +1046,28 @@ export default function StaysiftHero(props: HeroProps) {
     }
     const doSearch = (e: any) => {
         if (e && e.preventDefault) e.preventDefault()
+        const fromVal = (uiRef.current.fromInput?.value || "").trim()
+        const whereVal = (uiRef.current.whereInput?.value || "").trim()
+        const hasFrom = fromTouchedRef.current && fromVal.length > 0
+        const hasWhere = whereTouchedRef.current && whereVal.length > 0
+        if (!hasFrom || !hasWhere) {
+            const msg = !hasFrom && !hasWhere
+                ? "Taksi çağırmak için önce Nereden ve Nereye konumlarını girin."
+                : !hasFrom
+                    ? "Lütfen önce Nereden konumunu girin."
+                    : "Lütfen önce Nereye gideceğinizi girin."
+            setSearchWarn(msg)
+            activate()
+            if (!hasFrom && uiRef.current.fromInput) uiRef.current.fromInput.focus()
+            else if (!hasWhere && uiRef.current.whereInput) uiRef.current.whereInput.focus()
+            return
+        }
+        setSearchWarn(null)
         activate()
         setOrderSuccess(false)
+        setCallStep("choose")
+        setCashPhone("")
+        setPhoneErr(null)
         setCallModalOpen(true)
     }
 
@@ -1771,7 +1816,7 @@ export default function StaysiftHero(props: HeroProps) {
                 }
             }
             const nights = TL.nights || 0
-            if (narrowRef.current && ui.card && ui.card.offsetHeight > 40)
+            if (ui.card && ui.card.offsetHeight > 40)
                 CH = ui.card.offsetHeight
             let di = 0
             allPins.current.forEach((pins, ri) =>
@@ -1849,27 +1894,8 @@ export default function StaysiftHero(props: HeroProps) {
                 })
             )
             discs.instanceMatrix.needsUpdate = true
-            // search UI (the render loop owns these texts in both modes)
-            if (!US.active) {
-                const prevR = REGIONS[TL.prev]
-                if (
-                    ui.fromInput &&
-                    document.activeElement !== ui.fromInput
-                ) {
-                    ui.fromInput.value = prevR ? prevR.name : "Mevcut Konum"
-                }
-                const typed = R.name.slice(
-                    0,
-                    Math.round(R.name.length * TL.typing)
-                )
-                if (ui.whereInput && document.activeElement !== ui.whereInput)
-                    ui.whereInput.value = typed
-                if (ui.caret)
-                    ui.caret.style.opacity =
-                        TL.typing > 0 && TL.typing < 1
-                            ? String(Math.round(t * 3) % 2)
-                            : "0"
-            } else if (ui.caret) ui.caret.style.opacity = "0"
+            // search UI: inputlar boş kalır, kullanıcı kendisi yazar (placeholder görünür)
+            if (ui.caret) ui.caret.style.opacity = "0"
             const from = US.active ? US.from : 12
             const endDay = US.active
                 ? US.to || 0
@@ -1941,24 +1967,37 @@ export default function StaysiftHero(props: HeroProps) {
             if (ui.card) {
                 const c = TL.card
                 const narrow = narrowRef.current
+                const isCompact = narrow || W < 1000
                 const pinX = R.cx, pinZ = R.cz
                 proj.set(pinX, heightAt(pinX, pinZ) * hsc, pinZ).project(camera)
                 const gx = (proj.x * 0.5 + 0.5) * W,
                     gy = (-proj.y * 0.5 + 0.5) * Hh
-                const cw = narrow ? Math.min(W - 24, 340) : 320
-                // Mobilde ortalanmış, Bilgisayarda tam ekranda en sağda (sağdan 24px mesafede)
+                const cw = narrow
+                    ? Math.min(W - 24, 320)
+                    : isCompact
+                        ? Math.min(W - 32, 310)
+                        : Math.min(256, Math.round(W * 0.22))
+                // Mobilde ortalanmış, yarım ekran ve bilgisayarda sağ altta
                 const cx = narrow
                     ? Math.max(12, (W - cw) / 2)
-                    : W - cw - 24
+                    : W - cw - 20
                 
-                // Mobilde alttan 16px boşluk; Bilgisayarda tam ekranda en sağ altta (alttan 24px mesafede)
-                const cy = narrow
-                    ? Hh - CH - 16
-                    : Hh - CH - 24
-                ui.card.style.visibility = c > 0.005 ? "visible" : "hidden"
-                ui.card.style.opacity = String(clamp(c * 1.2))
                 ui.card.style.width = cw + "px"
-                ui.card.style.transform = `translate3d(${cx.toFixed(1)}px, ${(cy + (1 - c) * 32).toFixed(1)}px, 0)`
+                const actualH = ui.card.offsetHeight > 40 ? ui.card.offsetHeight : CH
+                CH = actualH
+                const visH = narrow
+                    ? Math.min(Hh, window.visualViewport?.height || window.innerHeight || Hh)
+                    : Hh
+                const bottomPad = narrow ? 38 : 20
+                const cy = Math.max(72, visH - actualH - bottomPad)
+                const inputFocused =
+                    document.activeElement === ui.fromInput ||
+                    document.activeElement === ui.whereInput
+                const showCard = c > 0.005 && !inputFocused && !US.cardClosed
+                ui.card.style.visibility = showCard ? "visible" : "hidden"
+                ui.card.style.opacity = showCard ? String(clamp(c * 1.2)) : "0"
+                ui.card.style.pointerEvents = showCard ? "auto" : "none"
+                ui.card.style.transform = `translate3d(${cx.toFixed(1)}px, ${(cy + (1 - c) * 28).toFixed(1)}px, 0)`
                 ui.card.style.transformOrigin = "50% 50%"
                 ui.card.style.clipPath = "none"
                 const img = st
@@ -2633,14 +2672,15 @@ export default function StaysiftHero(props: HeroProps) {
                             Paytaksi
                         </a>
 
-                        {!narrow && (
+                        {!compactNav && (
                             <div
                                 className="ss-navlinks"
                                 style={{
                                     display: "flex",
-                                    gap: 28,
+                                    gap: 24,
                                     fontSize: 14,
                                     fontWeight: 500,
+                                    whiteSpace: "nowrap",
                                 }}
                             >
                                 <a className="ss-link" href="#tarife">
@@ -2663,9 +2703,10 @@ export default function StaysiftHero(props: HeroProps) {
                                 display: "flex",
                                 gap: 8,
                                 alignItems: "center",
+                                flexShrink: 0,
                             }}
                         >
-                            {!narrow && (
+                            {!compactNav && (
                                 <>
                                     <a
                                         className="ss-link"
@@ -2674,6 +2715,7 @@ export default function StaysiftHero(props: HeroProps) {
                                             fontSize: 14,
                                             fontWeight: 500,
                                             marginRight: 6,
+                                            whiteSpace: "nowrap",
                                         }}
                                     >
                                         0424 233 00 23
@@ -2689,14 +2731,15 @@ export default function StaysiftHero(props: HeroProps) {
                                             textDecoration: "none",
                                             fontWeight: 600,
                                             fontSize: 14,
+                                            whiteSpace: "nowrap",
                                         }}
                                     >
                                         Taksi Çağır
                                     </a>
                                 </>
                             )}
-                        {/* Hamburger Menü Butonu: Masaüstü tam ekranda (narrow=false) zaten üstte linkler göründüğü için gizlenir; Mobilde/dar ekranda görünür */}
-                        {narrow && (
+                        {/* Hamburger Menü Butonu: Geniş masaüstünde (compactNav=false) gizlenir; dar ekranda ve telefonda görünür */}
+                        {compactNav && (
                             <button
                                 aria-label="Menüyü Aç"
                                 aria-expanded={menuOpen}
@@ -2755,32 +2798,32 @@ export default function StaysiftHero(props: HeroProps) {
                         </div>
                     </nav>
 
-                    {/* Mobil Açılır Menü (Tarifeler, Popüler Noktalar, Duraklarımız, Hakkımızda) */}
-                    {narrow && menuOpen && (
+                    {/* Mobil & Dar Ekran Açılır Menü (Sağa hizalı kompakt açılır menü) */}
+                    {compactNav && menuOpen && (
                         <div
                             aria-hidden="false"
                             style={{
                                 position: "absolute",
-                                left: 16,
-                                right: 16,
-                                top: 68,
-                                width: "calc(100% - 32px)",
-                                borderRadius: 20,
+                                left: "auto",
+                                right: narrow ? 12 : 0,
+                                top: narrow ? 60 : 58,
+                                width: narrow ? "min(232px, calc(100vw - 24px))" : 256,
+                                borderRadius: 16,
                                 background: "rgba(252, 251, 248, 0.98)",
                                 backdropFilter: "blur(20px)",
                                 WebkitBackdropFilter: "blur(20px)",
                                 boxShadow:
-                                    "rgba(30, 28, 20, 0.3) 0px 24px 50px -16px, rgba(16, 17, 20, 0.08) 0px 0px 0px 1px",
-                                padding: "8px 10px",
+                                    "rgba(30, 28, 20, 0.24) 0px 18px 38px -14px, rgba(16, 17, 20, 0.08) 0px 0px 0px 1px",
+                                padding: "6px 7px",
                                 pointerEvents: "auto",
                                 zIndex: 100,
                             }}
                         >
                             {[
-                                { title: "Tarifeler", desc: "Km & sabit ücret hesaplama", href: "#tarife" },
+                                { title: "Tarifeler", desc: "Km & sabit ücret", href: "#tarife" },
                                 { title: "Popüler Noktalar", desc: "Havalimanı, AVM, Hastane", href: "#noktalar" },
-                                { title: "Duraklarımız", desc: "Elazığ geneli 7/24 taksi", href: "#durak" },
-                                { title: "Hakkımızda", desc: "Paytaksi kurumsal bilgi", href: "#hakkimizda" },
+                                { title: "Duraklarımız", desc: "Elazığ geneli 7/24", href: "#durak" },
+                                { title: "Hakkımızda", desc: "Paytaksi bilgi", href: "#hakkimizda" },
                             ].map((item) => (
                                 <a
                                     key={item.title}
@@ -2792,28 +2835,28 @@ export default function StaysiftHero(props: HeroProps) {
                                         display: "flex",
                                         justifyContent: "space-between",
                                         alignItems: "center",
-                                        padding: "12px 14px",
-                                        borderRadius: 14,
+                                        padding: "8px 10px",
+                                        borderRadius: 11,
                                         color: C.ink,
                                         textDecoration: "none",
-                                        borderBottom: "1px solid rgba(16, 17, 20, 0.06)",
+                                        borderBottom: "1px solid rgba(16, 17, 20, 0.05)",
                                         transition: "background 0.2s ease",
                                     }}
                                 >
                                     <div>
-                                        <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.02em" }}>
+                                        <div style={{ fontSize: 13.5, fontWeight: 700, letterSpacing: "-0.02em" }}>
                                             {item.title}
                                         </div>
-                                        <div style={{ fontSize: 12, color: C.ink2, marginTop: 2 }}>
+                                        <div style={{ fontSize: 11, color: C.ink2, marginTop: 1 }}>
                                             {item.desc}
                                         </div>
                                     </div>
                                     <svg
-                                        width="16"
-                                        height="16"
+                                        width="13"
+                                        height="13"
                                         viewBox="0 0 24 24"
                                         aria-hidden="true"
-                                        style={{ flex: "0 0 auto", opacity: 0.5 }}
+                                        style={{ flex: "0 0 auto", opacity: 0.45 }}
                                     >
                                         <path
                                             d="M5 12h14M13 6l6 6-6 6"
@@ -2826,25 +2869,7 @@ export default function StaysiftHero(props: HeroProps) {
                                     </svg>
                                 </a>
                             ))}
-                            <div style={{ padding: "12px 6px 4px", display: "flex", gap: 8 }}>
-                                <a
-                                    href="tel:04242330023"
-                                    onClick={() => setMenuOpen(false)}
-                                    style={{
-                                        flex: 1,
-                                        textAlign: "center",
-                                        padding: "11px 0px",
-                                        borderRadius: 12,
-                                        border: "1px solid rgba(16, 17, 20, 0.12)",
-                                        fontWeight: 600,
-                                        fontSize: 13,
-                                        color: C.ink,
-                                        textDecoration: "none",
-                                        background: "#fff",
-                                    }}
-                                >
-                                    📞 0424 233 00 23
-                                </a>
+                            <div style={{ padding: "8px 4px 3px", display: "flex", flexDirection: "column", gap: 6 }}>
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -2852,20 +2877,38 @@ export default function StaysiftHero(props: HeroProps) {
                                         doSearch(null)
                                     }}
                                     style={{
-                                        flex: 1,
+                                        width: "100%",
                                         textAlign: "center",
-                                        padding: "11px 0px",
-                                        borderRadius: 12,
+                                        padding: "8px 0px",
+                                        borderRadius: 10,
                                         background: C.accent,
                                         border: 0,
                                         fontWeight: 600,
-                                        fontSize: 13,
+                                        fontSize: 12.5,
                                         color: "#fff",
                                         cursor: "pointer",
                                     }}
                                 >
                                     Hemen Çağır
                                 </button>
+                                <a
+                                    href="tel:04242330023"
+                                    onClick={() => setMenuOpen(false)}
+                                    style={{
+                                        width: "100%",
+                                        textAlign: "center",
+                                        padding: "7px 0px",
+                                        borderRadius: 10,
+                                        border: "1px solid rgba(16, 17, 20, 0.1)",
+                                        fontWeight: 600,
+                                        fontSize: 12,
+                                        color: C.ink,
+                                        textDecoration: "none",
+                                        background: "#fff",
+                                    }}
+                                >
+                                    📞 0424 233 00 23
+                                </a>
                             </div>
                         </div>
                     )}
@@ -3023,14 +3066,18 @@ export default function StaysiftHero(props: HeroProps) {
                                     ui.fromInput = el
                                 }}
                                 aria-label="Nereden?"
-                                placeholder="Mevcut konum veya adres"
-                                defaultValue="Çarşı · Gazi Cd."
+                                placeholder="Örn. Gazi Cd."
+                                defaultValue=""
                                 autoComplete="off"
                                 onFocus={(e) => {
                                     onFrom(e)
                                     e.currentTarget.select()
                                 }}
-                                onChange={onFrom}
+                                onChange={(e) => {
+                                    fromTouchedRef.current = true
+                                    setSearchWarn(null)
+                                    onFrom(e)
+                                }}
                                 onKeyDown={(e) => {
                                     if (e.key === "Enter" && sug.length) {
                                         e.preventDefault()
@@ -3136,14 +3183,18 @@ export default function StaysiftHero(props: HeroProps) {
                                     ui.whereInput = el
                                 }}
                                 aria-label="Nereye gidiyorsunuz?"
-                                placeholder="Varış noktası arayın..."
-                                defaultValue="Elysium Park AVM"
+                                placeholder="Örn. Elazığ Havalimanı"
+                                defaultValue=""
                                 autoComplete="off"
                                 onFocus={(e) => {
                                     onWhere(e)
                                     e.currentTarget.select()
                                 }}
-                                onChange={onWhere}
+                                onChange={(e) => {
+                                    whereTouchedRef.current = true
+                                    setSearchWarn(null)
+                                    onWhere(e)
+                                }}
                                 onKeyDown={(e) => {
                                     if (e.key === "Enter" && sug.length) {
                                         e.preventDefault()
@@ -3227,6 +3278,35 @@ export default function StaysiftHero(props: HeroProps) {
                             />
                         </svg>
                     </button>
+                    {/* Uyarı: Nereden / Nereye girilmeden Çağır'a basılırsa */}
+                    {searchWarn && (
+                        <div
+                            role="alert"
+                            style={{
+                                position: "absolute",
+                                left: "50%",
+                                top: "calc(100% + 10px)",
+                                transform: "translateX(-50%)",
+                                background: "#101114",
+                                color: "#fff",
+                                fontSize: 12.5,
+                                fontWeight: 500,
+                                padding: "8px 14px",
+                                borderRadius: 999,
+                                boxShadow: "0 14px 32px -10px rgba(16,17,20,0.45)",
+                                whiteSpace: narrow ? "normal" : "nowrap",
+                                textAlign: "center",
+                                maxWidth: "calc(100vw - 32px)",
+                                zIndex: 12,
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                            }}
+                        >
+                            <span style={{ width: 7, height: 7, borderRadius: 99, background: "#F5B800", flex: "none" }} />
+                            <span>{searchWarn}</span>
+                        </div>
+                    )}
                     {/* place suggestions */}
                     {sug.length > 0 && sugField === "from" && (
                         <div
@@ -3253,6 +3333,8 @@ export default function StaysiftHero(props: HeroProps) {
                                     // 1. Önce aktif olan inputu blur yapıp klavyeyi tamamen aşağı indiriyoruz
                                     if (uiRef.current.fromInput) {
                                         uiRef.current.fromInput.value = "Mevcut Konum"
+                                        fromTouchedRef.current = true
+                                        setSearchWarn(null)
                                         uiRef.current.fromInput.blur()
                                     }
                                     if (uiRef.current.whereInput) {
@@ -3354,23 +3436,24 @@ export default function StaysiftHero(props: HeroProps) {
                     position: "absolute",
                     left: 0,
                     top: 0,
-                    width: 312,
+                    width: compactNav ? 310 : 256,
                     zIndex: 7,
                     visibility: "hidden",
                     textDecoration: "none",
                     color: C.ink,
-                    borderRadius: narrow ? 22 : 18,
+                    borderRadius: compactNav ? 18 : 16,
                     overflow: "hidden",
                     background: "#fff",
                     boxShadow:
-                        "0 30px 60px -20px rgba(30,28,20,0.4), 0 0 0 1px rgba(16,17,20,0.06)",
-                    display: narrow ? "flex" : "block",
+                        "0 24px 48px -18px rgba(30,28,20,0.35), 0 0 0 1px rgba(16,17,20,0.06)",
+                    display: compactNav ? "flex" : "block",
                 }}
             >
                 <div
                     style={{
-                        height: narrow ? 128 : 176,
-                        width: narrow ? 118 : "auto",
+                        height: compactNav ? "auto" : 114,
+                        minHeight: compactNav ? 98 : undefined,
+                        width: compactNav ? 96 : "auto",
                         flex: "none",
                         overflow: "hidden",
                         position: "relative",
@@ -3389,20 +3472,20 @@ export default function StaysiftHero(props: HeroProps) {
                             transformOrigin: "50% 60%",
                         }}
                     />
-                    {!narrow && (
+                    {!compactNav && (
                         <div
                             ref={(el) => {
                                 ui.cTag = el
                             }}
                             style={{
                                 position: "absolute",
-                                left: 10,
-                                top: 10,
-                                fontSize: 11,
+                                left: 8,
+                                top: 8,
+                                fontSize: 10,
                                 fontWeight: 600,
-                                padding: "5px 9px",
+                                padding: "4px 8px",
                                 borderRadius: 999,
-                                background: "rgba(255,255,255,0.9)",
+                                background: "rgba(255,255,255,0.92)",
                             }}
                         >
                             Loved by guests
@@ -3416,15 +3499,15 @@ export default function StaysiftHero(props: HeroProps) {
                     className="ss-btn ss-focus"
                     style={{
                         position: "absolute",
-                        right: 8,
-                        top: 8,
-                        width: 28,
-                        height: 28,
+                        right: 6,
+                        top: 6,
+                        width: 24,
+                        height: 24,
                         borderRadius: 99,
                         border: 0,
                         background: "rgba(255,255,255,.92)",
                         cursor: "pointer",
-                        fontSize: 15,
+                        fontSize: 14,
                         lineHeight: 1,
                         color: C.ink,
                         zIndex: 2,
@@ -3434,9 +3517,9 @@ export default function StaysiftHero(props: HeroProps) {
                 </button>
                 <div
                     style={{
-                        padding: narrow
-                            ? "11px 40px 11px 13px"
-                            : "13px 15px 15px",
+                        padding: compactNav
+                            ? "9px 32px 9px 11px"
+                            : "10px 12px 11px",
                         flex: 1,
                         minWidth: 0,
                     }}
@@ -3446,10 +3529,10 @@ export default function StaysiftHero(props: HeroProps) {
                             ui.cTitle = el
                         }}
                         style={{
-                            fontSize: 15,
+                            fontSize: compactNav ? 13.5 : 14,
                             fontWeight: 600,
                             letterSpacing: "-0.02em",
-                            whiteSpace: narrow ? "nowrap" : "normal",
+                            whiteSpace: "nowrap",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
                         }}
@@ -3459,10 +3542,10 @@ export default function StaysiftHero(props: HeroProps) {
                             ui.cMeta = el
                         }}
                         style={{
-                            fontSize: 12.5,
+                            fontSize: 11.5,
                             color: C.ink2,
                             marginTop: 2,
-                            whiteSpace: narrow ? "nowrap" : "normal",
+                            whiteSpace: "nowrap",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
                         }}
@@ -3472,8 +3555,8 @@ export default function StaysiftHero(props: HeroProps) {
                             display: "flex",
                             alignItems: "center",
                             gap: 5,
-                            fontSize: 12.5,
-                            marginTop: 6,
+                            fontSize: 11.5,
+                            marginTop: 5,
                         }}
                     >
                         <svg
@@ -3588,9 +3671,40 @@ export default function StaysiftHero(props: HeroProps) {
                         "Elysium Park AVM"
                     const basePrice = 200
                     const memberPrice = Math.round(basePrice * 0.85)
-                    const finish = () => {
+                    const CASH_COOLDOWN_KEY = "paytaksi_cash_cooldown_until"
+                    const getCashCooldownMin = () => {
+                        try {
+                            const until = Number(localStorage.getItem(CASH_COOLDOWN_KEY) || 0)
+                            const diff = until - Date.now()
+                            return diff > 0 ? Math.ceil(diff / 60000) : 0
+                        } catch {
+                            return 0
+                        }
+                    }
+                    const cooldownMin = getCashCooldownMin()
+                    const finish = (mode: "member" | "cash") => {
+                        if (mode === "cash") {
+                            try {
+                                localStorage.setItem(
+                                    CASH_COOLDOWN_KEY,
+                                    String(Date.now() + 60 * 60 * 1000)
+                                )
+                            } catch {}
+                        }
+                        const apiBase = `http://${window.location.hostname}:5080`
+                        fetch(`${apiBase}/api/rides/request`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                pickupAddress: fromName,
+                                destinationAddress: toName,
+                                customerPhone: mode === "cash" ? cashPhone : "Üye Hesabı",
+                                paymentType: mode === "cash" ? "Nakit" : "Cüzdan",
+                            }),
+                        }).catch(() => {})
+                        setOrderMode(mode)
                         setOrderSuccess(true)
-                        setTimeout(() => setCallModalOpen(false), 2600)
+                        setTimeout(() => setCallModalOpen(false), mode === "cash" ? 4500 : 2800)
                     }
                     return (
                         <div
@@ -3620,13 +3734,133 @@ export default function StaysiftHero(props: HeroProps) {
                                                 <path d="M5 12.5l4.5 4.5L19 7.5" />
                                             </svg>
                                         </span>
-                                        <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.03em" }}>
-                                            Taksin yola çıktı
+                                        <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-0.03em" }}>
+                                            {orderMode === "cash"
+                                                ? "Sürücünüze numaranızı ilettik"
+                                                : "Taksin yola çıktı"}
                                         </div>
-                                        <p style={{ margin: "6px auto 0", maxWidth: 300, fontSize: 13.5, lineHeight: 1.45, color: C.ink2 }}>
-                                            23 T 0421 · Ahmet Usta {fromName} noktasına geliyor. Tahmini varış ~2 dk.
+                                        <p style={{ margin: "6px auto 0", maxWidth: 310, fontSize: 13.5, lineHeight: 1.45, color: C.ink2 }}>
+                                            {orderMode === "cash"
+                                                ? "Sürücünüz 2 dk içinde sizinle iletişime geçecektir."
+                                                : `23 T 0421 · Ahmet Usta ${fromName} noktasına geliyor. Tahmini varış ~2 dk.`}
                                         </p>
                                     </div>
+                                ) : callStep === "cash-phone" ? (
+                                    <>
+                                        {/* Geri dön */}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setCallStep("choose")
+                                                setPhoneErr(null)
+                                            }}
+                                            style={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: 5,
+                                                border: 0,
+                                                background: "none",
+                                                padding: 0,
+                                                cursor: "pointer",
+                                                fontSize: 12.5,
+                                                fontWeight: 600,
+                                                color: C.ink2,
+                                                marginBottom: 12,
+                                            }}
+                                        >
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M15 18l-6-6 6-6" />
+                                            </svg>
+                                            Geri dön
+                                        </button>
+
+                                        {/* Başlık */}
+                                        <div style={{ display: "flex", alignItems: "center", gap: 12, paddingRight: 36 }}>
+                                            <span className="pt-ic">
+                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                                    <rect x="6.5" y="2.5" width="11" height="19" rx="2.5" />
+                                                    <path d="M10.5 18.5h3" />
+                                                </svg>
+                                            </span>
+                                            <div style={{ minWidth: 0 }}>
+                                                <div className="pt-eyebrow">
+                                                    <span className="pt-live" />
+                                                    Nakitle devam · {basePrice} TL
+                                                </div>
+                                                <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-0.03em", marginTop: 2 }}>
+                                                    Telefon numaranız
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <p style={{ margin: "14px 0 0", fontSize: 13.5, lineHeight: 1.45, color: C.ink2 }}>
+                                            Şoförümüzün size ulaşabilmesi için lütfen telefon numaranızı girin.
+                                        </p>
+
+                                        {/* Telefon girişi */}
+                                        <label className="pt-tile pt-field" style={{ marginTop: 14 }}>
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.ink2} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none" }}>
+                                                <rect x="6.5" y="2.5" width="11" height="19" rx="2.5" />
+                                                <path d="M10.5 18.5h3" />
+                                            </svg>
+                                            <span style={{ flex: 1, minWidth: 0 }}>
+                                                <span className="pt-label" style={{ display: "block" }}>Telefon numarası</span>
+                                                <input
+                                                    className="pt-input"
+                                                    type="tel"
+                                                    inputMode="tel"
+                                                    autoComplete="tel"
+                                                    autoFocus
+                                                    value={cashPhone}
+                                                    onChange={(e) => {
+                                                        setCashPhone(e.target.value)
+                                                        setPhoneErr(null)
+                                                    }}
+                                                    placeholder="05XX XXX XX XX"
+                                                />
+                                            </span>
+                                        </label>
+
+                                        {phoneErr && (
+                                            <div style={{ marginTop: 8, fontSize: 12.5, fontWeight: 500, color: "#B3261E" }}>
+                                                {phoneErr}
+                                            </div>
+                                        )}
+
+                                        <div style={{ marginTop: 16 }}>
+                                            <button
+                                                type="button"
+                                                className="pt-primary"
+                                                style={{ width: "100%" }}
+                                                onClick={() => {
+                                                    const rem = getCashCooldownMin()
+                                                    if (rem > 0) {
+                                                        setPhoneErr(`Nakit ile yeni çağrı için ${rem} dk beklemelisiniz.`)
+                                                        return
+                                                    }
+                                                    const digits = cashPhone.replace(/\D/g, "")
+                                                    if (digits.length < 10) {
+                                                        setPhoneErr("Lütfen geçerli bir telefon numarası girin.")
+                                                        return
+                                                    }
+                                                    finish("cash")
+                                                }}
+                                            >
+                                                <span style={{ flex: 1, minWidth: 0 }}>
+                                                    <span style={{ display: "block", fontSize: 15, fontWeight: 700, letterSpacing: "-0.02em" }}>
+                                                        Taksiyi Çağır
+                                                    </span>
+                                                    <span style={{ display: "block", fontSize: 12, opacity: 0.82, marginTop: 2 }}>
+                                                        {fromName} → {toName}
+                                                    </span>
+                                                </span>
+                                                <span className="pt-badge">{basePrice} TL</span>
+                                            </button>
+                                        </div>
+                                        <div style={{ marginTop: 12, textAlign: "center", fontSize: 11.5, color: "#8E9099" }}>
+                                            Numaranız yalnızca şoförünüzle paylaşılır
+                                        </div>
+                                    </>
                                 ) : (
                                     <>
                                         {/* Başlık */}
@@ -3686,27 +3920,9 @@ export default function StaysiftHero(props: HeroProps) {
                                             </span>
                                         </div>
 
-                                        {/* Telefon / giriş */}
-                                        <label className="pt-tile pt-field" style={{ marginTop: 10 }}>
-                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.ink2} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none" }}>
-                                                <rect x="6.5" y="2.5" width="11" height="19" rx="2.5" />
-                                                <path d="M10.5 18.5h3" />
-                                            </svg>
-                                            <span style={{ flex: 1, minWidth: 0 }}>
-                                                <span className="pt-label" style={{ display: "block" }}>Telefon numarası</span>
-                                                <input
-                                                    className="pt-input"
-                                                    type="tel"
-                                                    inputMode="tel"
-                                                    autoComplete="tel"
-                                                    placeholder="05XX XXX XX XX"
-                                                />
-                                            </span>
-                                        </label>
-
                                         {/* Aksiyonlar */}
                                         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
-                                            <button type="button" className="pt-primary" onClick={finish}>
+                                            <button type="button" className="pt-primary" onClick={() => finish("member")}>
                                                 <span style={{ flex: 1, minWidth: 0 }}>
                                                     <span style={{ display: "block", fontSize: 15, fontWeight: 700, letterSpacing: "-0.02em" }}>
                                                         Giriş yap, %15 indirimle çağır
@@ -3718,12 +3934,41 @@ export default function StaysiftHero(props: HeroProps) {
                                                 <span className="pt-badge">{memberPrice} TL</span>
                                             </button>
                                             <div className="pt-divider">veya</div>
-                                            <button type="button" className="pt-ghost" onClick={finish}>
+                                            <button
+                                                type="button"
+                                                className="pt-ghost"
+                                                disabled={cooldownMin > 0}
+                                                onClick={() => {
+                                                    if (cooldownMin > 0) return
+                                                    setCallStep("cash-phone")
+                                                    setPhoneErr(null)
+                                                }}
+                                                style={
+                                                    cooldownMin > 0
+                                                        ? { opacity: 0.48, cursor: "not-allowed" }
+                                                        : undefined
+                                                }
+                                            >
                                                 <span>Nakitle devam et</span>
                                                 <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.ink2, fontWeight: 500 }}>
-                                                    {basePrice} TL · araçta öde
+                                                    {cooldownMin > 0 ? `${cooldownMin} dk bekle` : `${basePrice} TL · araçta öde`}
                                                 </span>
                                             </button>
+                                            {cooldownMin > 0 && (
+                                                <div
+                                                    style={{
+                                                        fontSize: 12,
+                                                        lineHeight: 1.4,
+                                                        color: "#8A4B00",
+                                                        background: "rgba(245, 184, 0, 0.14)",
+                                                        border: "1px solid rgba(245, 184, 0, 0.35)",
+                                                        borderRadius: 12,
+                                                        padding: "9px 12px",
+                                                    }}
+                                                >
+                                                    Giriş yapmadan 1 saat içinde tekrar taksi çağıramazsınız ({cooldownMin} dk kaldı). Hemen çağırmak için üstten <b>Giriş yap</b> seçeneğini kullanabilirsiniz.
+                                                </div>
+                                            )}
                                         </div>
                                         <div style={{ marginTop: 14, textAlign: "center", fontSize: 11.5, color: "#8E9099" }}>
                                             Sürpriz ücret yok · Sabit tarife · Ücretsiz iptal

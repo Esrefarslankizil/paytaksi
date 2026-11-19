@@ -26,3 +26,10 @@ dist-ssr
 # Environment variables
 .env
 .env.*.local
+
+# .NET build artifacts & local DB
+backend/**/bin/
+backend/**/obj/
+*.db
+*.db-shm
+*.db-wal
