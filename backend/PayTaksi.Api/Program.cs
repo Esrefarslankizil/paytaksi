@@ -9,8 +9,16 @@ using PayTaksi.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var connStr = builder.Configuration.GetConnectionString("Default")!;
+var useMySql = connStr.Contains("Server=", StringComparison.OrdinalIgnoreCase);
+
 builder.Services.AddDbContext<AppDbContext>(o =>
-    o.UseSqlite(builder.Configuration.GetConnectionString("Default")));
+{
+    if (useMySql)
+        o.UseMySql(connStr, ServerVersion.AutoDetect(connStr));
+    else
+        o.UseSqlite(connStr);
+});
 
 builder.Services
     .AddIdentityCore<ApplicationUser>(o =>
@@ -50,11 +58,14 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Veritabanını migrate et ve varsayılan admin'i ekle
+// Veritabanını oluştur/migrate et ve varsayılan admin'i ekle
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await db.Database.MigrateAsync();
+    if (useMySql)
+        await db.Database.EnsureCreatedAsync();
+    else
+        await db.Database.MigrateAsync();
 
     var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
     var adminEmail = app.Configuration["SeedAdmin:Email"]!;
