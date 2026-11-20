@@ -2,6 +2,7 @@
 // Ana sitenin tasarım dilini (palet, font, cam kartlar, sekme çubuğu) kullanır.
 import * as React from "react"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import AuthPage, { AuthUser, TOKEN_KEY, getApiBase } from "../auth/AuthPage"
 
 const C = {
     bg: "#F1EFEA",
@@ -657,9 +658,28 @@ function Badge({ text }: { text: string }) {
 }
 
 export default function AdminApp() {
+    const [adminUser, setAdminUser] = useState<AuthUser | null>(null)
+    const [authChecking, setAuthChecking] = useState(true)
     const [tab, setTab] = useState<TabKey>(() => tabFromPath(window.location.pathname))
     const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({})
     const [ind, setInd] = useState({ left: 0, width: 0 })
+
+    // Route Guard: .NET Middleware + JWT doğrulaması (Admin rolü yoksa paneli gösterme)
+    useEffect(() => {
+        const token = localStorage.getItem(TOKEN_KEY)
+        if (!token) {
+            setAuthChecking(false)
+            return
+        }
+        fetch(`${getApiBase()}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((u: AuthUser | null) => {
+                if (u && u.roles.includes("Admin")) setAdminUser(u)
+                else localStorage.removeItem(TOKEN_KEY)
+            })
+            .catch(() => {})
+            .finally(() => setAuthChecking(false))
+    }, [])
 
     const go = (t: (typeof TABS)[number]) => {
         window.history.pushState({}, "", t.path)
@@ -718,6 +738,18 @@ export default function AdminApp() {
                   ]),
               }
             : PAGES[tab]
+
+    if (authChecking) {
+        return (
+            <div style={{ width: "100vw", height: "100dvh", display: "grid", placeItems: "center", background: C.bg, fontFamily: SANS, color: C.ink2 }}>
+                Yetki kontrol ediliyor...
+            </div>
+        )
+    }
+
+    if (!adminUser) {
+        return <AuthPage initialMode="login" requireRole="Admin" onAuthenticated={(u) => setAdminUser(u)} />
+    }
 
     return (
         <div
@@ -779,8 +811,16 @@ export default function AdminApp() {
                         </span>
                     </a>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span style={{ fontSize: 13, color: C.ink2 }}>admin@paytaksi.com</span>
-                        <button className="ad-btn" style={{ background: "rgba(16,17,20,0.06)", color: C.ink }}>
+                        <span style={{ fontSize: 13, color: C.ink2 }}>{adminUser.email}</span>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                localStorage.removeItem(TOKEN_KEY)
+                                setAdminUser(null)
+                            }}
+                            className="ad-btn"
+                            style={{ background: "rgba(16,17,20,0.06)", color: C.ink }}
+                        >
                             Çıkış
                         </button>
                     </div>

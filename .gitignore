@@ -33,3 +33,4 @@ backend/**/obj/
 *.db
 *.db-shm
 *.db-wal
+backend/**/appsettings.Development.json

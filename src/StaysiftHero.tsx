@@ -1051,15 +1051,8 @@ export default function StaysiftHero(props: HeroProps) {
         const hasFrom = fromTouchedRef.current && fromVal.length > 0
         const hasWhere = whereTouchedRef.current && whereVal.length > 0
         if (!hasFrom || !hasWhere) {
-            const msg = !hasFrom && !hasWhere
-                ? "Taksi çağırmak için önce Nereden ve Nereye konumlarını girin."
-                : !hasFrom
-                    ? "Lütfen önce Nereden konumunu girin."
-                    : "Lütfen önce Nereye gideceğinizi girin."
-            setSearchWarn(msg)
+            setSearchWarn("Taksi çağırabilmek için lütfen önce Nereden ve Nereye bilgilerini doldurun.")
             activate()
-            if (!hasFrom && uiRef.current.fromInput) uiRef.current.fromInput.focus()
-            else if (!hasWhere && uiRef.current.whereInput) uiRef.current.whereInput.focus()
             return
         }
         setSearchWarn(null)
@@ -2722,6 +2715,23 @@ export default function StaysiftHero(props: HeroProps) {
                                     </a>
                                     <a
                                         className="ss-btn"
+                                        href="/giris"
+                                        style={{
+                                            padding: "8px 14px",
+                                            borderRadius: 999,
+                                            border: "1px solid rgba(16, 17, 20, 0.14)",
+                                            background: "rgba(255, 255, 255, 0.78)",
+                                            color: C.ink,
+                                            textDecoration: "none",
+                                            fontWeight: 600,
+                                            fontSize: 13.5,
+                                            whiteSpace: "nowrap",
+                                        }}
+                                    >
+                                        Giriş Yap
+                                    </a>
+                                    <a
+                                        className="ss-btn"
                                         href="#taksi-cagir"
                                         style={{
                                             padding: "8px 16px",
@@ -2870,6 +2880,23 @@ export default function StaysiftHero(props: HeroProps) {
                                 </a>
                             ))}
                             <div style={{ padding: "8px 4px 3px", display: "flex", flexDirection: "column", gap: 6 }}>
+                                <a
+                                    href="/giris"
+                                    onClick={() => setMenuOpen(false)}
+                                    style={{
+                                        width: "100%",
+                                        textAlign: "center",
+                                        padding: "8px 0px",
+                                        borderRadius: 10,
+                                        background: C.ink,
+                                        fontWeight: 600,
+                                        fontSize: 12.5,
+                                        color: "#fff",
+                                        textDecoration: "none",
+                                    }}
+                                >
+                                    Giriş Yap
+                                </a>
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -3278,35 +3305,6 @@ export default function StaysiftHero(props: HeroProps) {
                             />
                         </svg>
                     </button>
-                    {/* Uyarı: Nereden / Nereye girilmeden Çağır'a basılırsa */}
-                    {searchWarn && (
-                        <div
-                            role="alert"
-                            style={{
-                                position: "absolute",
-                                left: "50%",
-                                top: "calc(100% + 10px)",
-                                transform: "translateX(-50%)",
-                                background: "#101114",
-                                color: "#fff",
-                                fontSize: 12.5,
-                                fontWeight: 500,
-                                padding: "8px 14px",
-                                borderRadius: 999,
-                                boxShadow: "0 14px 32px -10px rgba(16,17,20,0.45)",
-                                whiteSpace: narrow ? "normal" : "nowrap",
-                                textAlign: "center",
-                                maxWidth: "calc(100vw - 32px)",
-                                zIndex: 12,
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 8,
-                            }}
-                        >
-                            <span style={{ width: 7, height: 7, borderRadius: 99, background: "#F5B800", flex: "none" }} />
-                            <span>{searchWarn}</span>
-                        </div>
-                    )}
                     {/* place suggestions */}
                     {sug.length > 0 && sugField === "from" && (
                         <div
@@ -3660,6 +3658,58 @@ export default function StaysiftHero(props: HeroProps) {
                 </div>
             </a>
 
+            {/* Eksik konum uyarı modalı (aynı buzlu cam pt-card tasarımı) */}
+            {searchWarn && (
+                <div
+                    className="pt-overlay"
+                    role="alertdialog"
+                    aria-modal="true"
+                    aria-label="Konum bilgisi eksik"
+                    onClick={() => setSearchWarn(null)}
+                >
+                    <div className="pt-card" style={{ maxWidth: 360 }} onClick={(e) => e.stopPropagation()}>
+                        <span className="pt-glow" aria-hidden="true" />
+                        <button
+                            type="button"
+                            className="pt-close"
+                            aria-label="Kapat"
+                            onClick={() => setSearchWarn(null)}
+                        >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#101114" strokeWidth="2.4" strokeLinecap="round">
+                                <path d="M18 6L6 18M6 6l12 12" />
+                            </svg>
+                        </button>
+                        <div style={{ textAlign: "center", padding: "8px 4px 2px" }}>
+                            <span className="pt-ic" style={{ margin: "0 auto 12px" }}>
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 1 1 13 0c0 5.4-6.5 11-6.5 11z" />
+                                    <circle cx="12" cy="10" r="2.2" />
+                                </svg>
+                            </span>
+                            <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.03em" }}>
+                                Konum bilgisi eksik
+                            </div>
+                            <p style={{ margin: "8px auto 0", maxWidth: 280, fontSize: 13.5, lineHeight: 1.48, color: C.ink2 }}>
+                                {searchWarn}
+                            </p>
+                            <button
+                                type="button"
+                                className="pt-primary"
+                                style={{ width: "100%", justifyContent: "center", marginTop: 18, padding: "13px 16px" }}
+                                onClick={() => {
+                                    setSearchWarn(null)
+                                    const fromVal = (uiRef.current.fromInput?.value || "").trim()
+                                    if (!fromVal && uiRef.current.fromInput) uiRef.current.fromInput.focus()
+                                    else if (uiRef.current.whereInput) uiRef.current.whereInput.focus()
+                                }}
+                            >
+                                <span style={{ fontSize: 14.5, fontWeight: 700 }}>Tamam</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Taksi Çağır modalı: katmanlı buzlu cam (pt-*) */}
             {callModalOpen &&
                 (() => {
@@ -3691,7 +3741,8 @@ export default function StaysiftHero(props: HeroProps) {
                                 )
                             } catch {}
                         }
-                        const apiBase = `http://${window.location.hostname}:5080`
+                        const envUrl = (import.meta as any).env?.VITE_API_URL
+                        const apiBase = envUrl ? String(envUrl).replace(/\/$/, "") : `http://${window.location.hostname}:5080`
                         fetch(`${apiBase}/api/rides/request`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -3813,7 +3864,14 @@ export default function StaysiftHero(props: HeroProps) {
                                                     autoFocus
                                                     value={cashPhone}
                                                     onChange={(e) => {
-                                                        setCashPhone(e.target.value)
+                                                        let d = e.target.value.replace(/\D/g, "")
+                                                        if (d.startsWith("90") && d.length > 10) d = "0" + d.slice(2)
+                                                        else if (d.length > 0 && d[0] !== "0") d = "0" + d
+                                                        d = d.slice(0, 11)
+                                                        const formatted = [d.slice(0, 4), d.slice(4, 7), d.slice(7, 9), d.slice(9, 11)]
+                                                            .filter(Boolean)
+                                                            .join(" ")
+                                                        setCashPhone(formatted)
                                                         setPhoneErr(null)
                                                     }}
                                                     placeholder="05XX XXX XX XX"
@@ -3922,7 +3980,18 @@ export default function StaysiftHero(props: HeroProps) {
 
                                         {/* Aksiyonlar */}
                                         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
-                                            <button type="button" className="pt-primary" onClick={() => finish("member")}>
+                                            <button
+                                                type="button"
+                                                className="pt-primary"
+                                                onClick={() => {
+                                                    const hasToken = Boolean(localStorage.getItem("paytaksi_jwt_token"))
+                                                    if (!hasToken) {
+                                                        window.location.href = "/giris"
+                                                        return
+                                                    }
+                                                    finish("member")
+                                                }}
+                                            >
                                                 <span style={{ flex: 1, minWidth: 0 }}>
                                                     <span style={{ display: "block", fontSize: 15, fontWeight: 700, letterSpacing: "-0.02em" }}>
                                                         Giriş yap, %15 indirimle çağır

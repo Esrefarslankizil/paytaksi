@@ -52,12 +52,35 @@ public class WhatsAppService
         }
 
         var url = $"https://graph.facebook.com/{apiVersion}/{phoneNumberId}/messages";
+        var pickupWithMap = mapLink is not null ? $"{ride.PickupAddress} ({mapLink})" : ride.PickupAddress;
+        var templateName = _config["WhatsApp:TemplateName"] ?? "yeni_taksi_cagrisi";
+        var templateLang = _config["WhatsApp:TemplateLang"] ?? "tr";
+
+        // Resmi Utility şablonu: sürücü son 24 saatte mesaj atmamış olsa bile %100 teslim edilir
         var payload = new
         {
             messaging_product = "whatsapp",
             to = NormalizePhone(driver.Phone),
-            type = "text",
-            text = new { preview_url = true, body = bodyText }
+            type = "template",
+            template = new
+            {
+                name = templateName,
+                language = new { code = templateLang },
+                components = new object[]
+                {
+                    new
+                    {
+                        type = "body",
+                        parameters = new object[]
+                        {
+                            new { type = "text", text = pickupWithMap },
+                            new { type = "text", text = ride.DestinationAddress },
+                            new { type = "text", text = ride.CustomerPhone },
+                            new { type = "text", text = ride.PaymentType },
+                        }
+                    }
+                }
+            }
         };
 
         using var req = new HttpRequestMessage(HttpMethod.Post, url);
