@@ -888,10 +888,17 @@ export default function StaysiftHero(props: HeroProps) {
     const [, force] = React.useState(0)
     const compactNav = narrow || mid
 
-    const trackEvent = (eventType: string) => {
+    const getApiUrl = () => {
         const envUrl = (import.meta as any).env?.VITE_API_URL
-        const apiBase = envUrl ? String(envUrl).replace(/\/$/, "") : `http://${window.location.hostname}:5080`
-        fetch(`${apiBase}/api/analytics/event`, {
+        if (envUrl) return String(envUrl).replace(/\/$/, "")
+        const h = window.location.hostname
+        if (h === "localhost" || h.startsWith("10.") || h.startsWith("192.168.") || h.startsWith("127."))
+            return `http://${h}:5080`
+        return "https://api.paytaksi.com.tr"
+    }
+
+    const trackEvent = (eventType: string) => {
+        fetch(`${getApiUrl()}/api/analytics/event`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ eventType }),
@@ -3757,10 +3764,8 @@ export default function StaysiftHero(props: HeroProps) {
                                 )
                             } catch {}
                         }
-                        const envUrl = (import.meta as any).env?.VITE_API_URL
-                        const apiBase = envUrl ? String(envUrl).replace(/\/$/, "") : `http://${window.location.hostname}:5080`
                         trackEvent("ride_completed")
-                        fetch(`${apiBase}/api/rides/request`, {
+                        fetch(`${getApiUrl()}/api/rides/request`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({

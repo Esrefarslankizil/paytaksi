@@ -25,7 +25,11 @@ export interface AuthUser {
 
 export function getApiBase() {
     const envUrl = (import.meta as any).env?.VITE_API_URL
-    return envUrl ? String(envUrl).replace(/\/$/, "") : `http://${window.location.hostname}:5080`
+    if (envUrl) return String(envUrl).replace(/\/$/, "")
+    const h = window.location.hostname
+    if (h === "localhost" || h.startsWith("10.") || h.startsWith("192.168.") || h.startsWith("127."))
+        return `http://${h}:5080`
+    return "https://api.paytaksi.com.tr"
 }
 
 function formatTrPhone(raw: string): string {

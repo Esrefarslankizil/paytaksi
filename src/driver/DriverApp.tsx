@@ -68,7 +68,12 @@ function Icon({ name, color }: { name: string; color: string }) {
 
 export default function DriverApp() {
     const envUrl = (import.meta as any).env?.VITE_API_URL
-    const apiBase = envUrl ? String(envUrl).replace(/\/$/, "") : `http://${window.location.hostname}:5080`
+    const h = window.location.hostname
+    const apiBase = envUrl
+        ? String(envUrl).replace(/\/$/, "")
+        : h === "localhost" || h.startsWith("10.") || h.startsWith("192.168.") || h.startsWith("127.")
+            ? `http://${h}:5080`
+            : "https://api.paytaksi.com.tr"
     const [tab, setTab] = useState<TabKey>(() => tabFromPath(window.location.pathname))
     const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({})
     const [ind, setInd] = useState({ left: 0, width: 0 })
