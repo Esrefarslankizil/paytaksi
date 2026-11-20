@@ -168,6 +168,24 @@ namespace PayTaksi.Api.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("PayTaksi.Api.Models.AnalyticsEvent", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AnalyticsEvents");
+                });
+
             modelBuilder.Entity("PayTaksi.Api.Models.ApplicationUser", b =>
                 {
                     b.Property<string>("Id")
@@ -283,10 +301,10 @@ namespace PayTaksi.Api.Migrations
                             Id = 1,
                             FullName = "Ahmet Usta",
                             IsEnabled = true,
-                            Phone = "905551112233",
+                            Phone = "905011366815",
                             Plate = "23 T 0421",
                             ShiftEnd = new TimeOnly(23, 59, 0),
-                            ShiftStart = new TimeOnly(8, 0, 0),
+                            ShiftStart = new TimeOnly(0, 0, 0),
                             Station = "Merkez"
                         },
                         new
@@ -294,7 +312,7 @@ namespace PayTaksi.Api.Migrations
                             Id = 2,
                             FullName = "Mehmet Kaya",
                             IsEnabled = true,
-                            Phone = "905554445566",
+                            Phone = "905011366815",
                             Plate = "23 T 1042",
                             ShiftEnd = new TimeOnly(8, 0, 0),
                             ShiftStart = new TimeOnly(20, 0, 0),

@@ -11,6 +11,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole, str
 
     public DbSet<Driver> Drivers => Set<Driver>();
     public DbSet<RideRequest> RideRequests => Set<RideRequest>();
+    public DbSet<AnalyticsEvent> AnalyticsEvents => Set<AnalyticsEvent>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

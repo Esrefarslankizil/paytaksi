@@ -888,6 +888,20 @@ export default function StaysiftHero(props: HeroProps) {
     const [, force] = React.useState(0)
     const compactNav = narrow || mid
 
+    const trackEvent = (eventType: string) => {
+        const envUrl = (import.meta as any).env?.VITE_API_URL
+        const apiBase = envUrl ? String(envUrl).replace(/\/$/, "") : `http://${window.location.hostname}:5080`
+        fetch(`${apiBase}/api/analytics/event`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ eventType }),
+        }).catch(() => {})
+    }
+
+    useEffect(() => {
+        trackEvent("page_view")
+    }, [])
+
     useEffect(() => {
         if (!compactNav && menuOpen) setMenuOpen(false)
     }, [compactNav, menuOpen])
@@ -1046,6 +1060,7 @@ export default function StaysiftHero(props: HeroProps) {
     }
     const doSearch = (e: any) => {
         if (e && e.preventDefault) e.preventDefault()
+        trackEvent("call_click")
         const fromVal = (uiRef.current.fromInput?.value || "").trim()
         const whereVal = (uiRef.current.whereInput?.value || "").trim()
         const hasFrom = fromTouchedRef.current && fromVal.length > 0
@@ -1062,6 +1077,7 @@ export default function StaysiftHero(props: HeroProps) {
         setCashPhone("")
         setPhoneErr(null)
         setCallModalOpen(true)
+        trackEvent("payment_open")
     }
 
     useEffect(() => {
@@ -3743,6 +3759,7 @@ export default function StaysiftHero(props: HeroProps) {
                         }
                         const envUrl = (import.meta as any).env?.VITE_API_URL
                         const apiBase = envUrl ? String(envUrl).replace(/\/$/, "") : `http://${window.location.hostname}:5080`
+                        trackEvent("ride_completed")
                         fetch(`${apiBase}/api/rides/request`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -3984,6 +4001,7 @@ export default function StaysiftHero(props: HeroProps) {
                                                 type="button"
                                                 className="pt-primary"
                                                 onClick={() => {
+                                                    trackEvent("wallet_click")
                                                     const hasToken = Boolean(localStorage.getItem("paytaksi_jwt_token"))
                                                     if (!hasToken) {
                                                         window.location.href = "/giris"
@@ -4009,6 +4027,7 @@ export default function StaysiftHero(props: HeroProps) {
                                                 disabled={cooldownMin > 0}
                                                 onClick={() => {
                                                     if (cooldownMin > 0) return
+                                                    trackEvent("cash_click")
                                                     setCallStep("cash-phone")
                                                     setPhoneErr(null)
                                                 }}
