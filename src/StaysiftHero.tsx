@@ -2489,10 +2489,10 @@ export default function StaysiftHero(props: HeroProps) {
               .pt-divider { display: flex; align-items: center; gap: 10px; font-size: 11px; color: #8E9099; }
               .pt-divider::before, .pt-divider::after { content: ""; flex: 1; height: 1px; background: rgba(16,17,20,0.08); }
               .pt-close:focus-visible, .pt-primary:focus-visible, .pt-ghost:focus-visible { outline: 2px solid ${C.accent}; outline-offset: 3px; }
-              /* telefonda alttan açılan sayfa (bottom sheet) */
+              /* telefonda ekranı ortalayan kompakt kart */
               @media (max-width: 700px) {
-                .pt-overlay { align-items: flex-end; padding: 10px; }
-                .pt-card { padding: 20px 18px 18px; border-radius: 28px; animation-name: ptUp; }
+                .pt-overlay { align-items: center; padding: 14px; }
+                .pt-card { padding: 20px 18px 18px; border-radius: 28px; }
               }
               @media (prefers-reduced-motion: reduce) {
                 .pt-overlay, .pt-card, .pt-live { animation: none; }
