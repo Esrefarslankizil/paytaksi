@@ -93,6 +93,24 @@ public class WhatsAppService
             var resText = await res.Content.ReadAsStringAsync();
             if (!res.IsSuccessStatusCode)
             {
+                // Şablon henüz Meta onayındaysa (132001) doğrudan metin mesajıyla yedek gönderim yap
+                if (resText.Contains("132001"))
+                {
+                    var textPayload = new
+                    {
+                        messaging_product = "whatsapp",
+                        to = NormalizePhone(driver.Phone),
+                        type = "text",
+                        text = new { preview_url = true, body = bodyText }
+                    };
+                    using var req2 = new HttpRequestMessage(HttpMethod.Post, url);
+                    req2.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+                    req2.Content = new StringContent(JsonSerializer.Serialize(textPayload), Encoding.UTF8, "application/json");
+                    using var res2 = await _http.SendAsync(req2);
+                    var resText2 = await res2.Content.ReadAsStringAsync();
+                    if (res2.IsSuccessStatusCode) return new WhatsAppSendResult(true, false, bodyText);
+                    return new WhatsAppSendResult(false, false, bodyText, resText2);
+                }
                 _logger.LogWarning("WhatsApp API hatası ({Status}): {Body}", res.StatusCode, resText);
                 return new WhatsAppSendResult(false, false, bodyText, resText);
             }
