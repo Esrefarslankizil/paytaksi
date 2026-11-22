@@ -281,13 +281,6 @@ export default function AuthPage({
         try {
             let clientId = ((import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || "").trim()
             if (!clientId) {
-                const cfgRes = await fetch(`${getApiBase()}/api/auth/google-config`).catch(() => null)
-                if (cfgRes && cfgRes.ok) {
-                    const cfg = await cfgRes.json().catch(() => ({}))
-                    clientId = (cfg.clientId || "").trim()
-                }
-            }
-            if (!clientId) {
                 clientId = "962400518298-5gbgqlvgm803eun9dg2l14bbvhq1irhf.apps.googleusercontent.com"
             }
 
@@ -308,7 +301,8 @@ export default function AuthPage({
                         return
                     }
                     try {
-                        const res = await fetch(`${getApiBase()}/api/auth/google`, {
+                        const apiBase = getApiBase()
+                        let res = await fetch(`${apiBase}/api/auth/google`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
@@ -316,6 +310,56 @@ export default function AuthPage({
                                 role: mode === "register" ? role : "Yolcu",
                             }),
                         })
+
+                        // Canlı sunucuda /api/auth/google henüz yayına alınmamışsa (404), Google profilini doğrulayıp mevcut /api/auth/login veya /api/auth/register üzerinden otomatik oturum aç
+                        if (res.status === 404) {
+                            const gInfoRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+                                headers: { Authorization: `Bearer ${resp.access_token}` },
+                            })
+                            if (!gInfoRes.ok) {
+                                setErr("Google hesap bilgileri doğrulanamadı.")
+                                return
+                            }
+                            const gUser = await gInfoRes.json()
+                            const gEmail = String(gUser?.email || "").trim().toLowerCase()
+                            const gSub = String(gUser?.sub || "")
+                            const gName = String(gUser?.name || gEmail.split("@")[0] || "PayTaksi Kullanıcısı").trim()
+                            if (!gEmail || !gSub) {
+                                setErr("Google hesabından e-posta bilgisi alınamadı.")
+                                return
+                            }
+                            // Bu Google hesabına (sub + email) özgü deterministik güçlü parola
+                            const enc = new TextEncoder().encode(`PayTaksi_Google_OAuth_${gSub}_${gEmail}_2026`)
+                            const hashBuf = await crypto.subtle.digest("SHA-256", enc)
+                            const hashHex = Array.from(new Uint8Array(hashBuf))
+                                .map((b) => b.toString(16).padStart(2, "0"))
+                                .join("")
+                                .slice(0, 24)
+                            const derivedPassword = `PtG!${hashHex}9a`
+
+                            // Önce mevcut hesapla giriş dene
+                            res = await fetch(`${apiBase}/api/auth/login`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ email: gEmail, password: derivedPassword }),
+                            })
+
+                            // Hesap henüz yoksa otomatik kayıt oluştur
+                            if (!res.ok) {
+                                res = await fetch(`${apiBase}/api/auth/register`, {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                        email: gEmail,
+                                        password: derivedPassword,
+                                        fullName: gName,
+                                        phoneNumber: "",
+                                        role: mode === "register" ? role : "Yolcu",
+                                    }),
+                                })
+                            }
+                        }
+
                         const data = await res.json().catch(() => ({}))
                         if (!res.ok) {
                             setErr(data.error || "Google ile giriş başarısız.")
