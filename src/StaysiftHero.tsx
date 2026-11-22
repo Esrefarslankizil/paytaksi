@@ -930,6 +930,13 @@ export default function StaysiftHero(props: HeroProps) {
         trackEvent("page_view")
         const token = localStorage.getItem("paytaksi_jwt_token")
         if (!token) return
+        if (token.startsWith("google_oauth_")) {
+            try {
+                const raw = localStorage.getItem("paytaksi_google_user")
+                if (raw) setAuthUser(JSON.parse(raw))
+            } catch {}
+            return
+        }
         fetch(`${getApiUrl()}/api/auth/me`, {
             headers: { Authorization: `Bearer ${token}` },
         })

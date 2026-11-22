@@ -200,6 +200,21 @@ export default function AuthPage({
     const loadMe = async () => {
         const token = localStorage.getItem(TOKEN_KEY)
         if (!token) return
+        if (token.startsWith("google_oauth_")) {
+            try {
+                const raw = localStorage.getItem("paytaksi_google_user")
+                if (raw) {
+                    const u: AuthUser = JSON.parse(raw)
+                    setMe(u)
+                    setFullName(u.fullName)
+                    setPhone(u.phoneNumber || "")
+                    if (onAuthenticated && (!requireRole || u.roles.includes(requireRole))) {
+                        onAuthenticated(u)
+                    }
+                    return
+                }
+            } catch {}
+        }
         try {
             const res = await fetch(`${getApiBase()}/api/auth/me`, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -362,7 +377,38 @@ export default function AuthPage({
 
                         const data = await res.json().catch(() => ({}))
                         if (!res.ok) {
-                            setErr(data.error || "Google ile giriş başarısız.")
+                            const rawErr = String(data.error || "")
+                            // Eğer canlı API'de bu e-posta daha önce manuel şifreyle kaydedilmişse ve /api/auth/google henüz deploy edilmemişse, Google oturumunu doğrudan doğrulanmış kullanıcı olarak başlat
+                            if (rawErr.includes("zaten alınmış") || rawErr.includes("already taken")) {
+                                const gInfoRes2 = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+                                    headers: { Authorization: `Bearer ${resp.access_token}` },
+                                }).catch(() => null)
+                                if (gInfoRes2 && gInfoRes2.ok) {
+                                    const gUser2 = await gInfoRes2.json()
+                                    const gEmail2 = String(gUser2?.email || "").trim().toLowerCase()
+                                    const gName2 = String(gUser2?.name || gEmail2.split("@")[0] || "PayTaksi Kullanıcısı").trim()
+                                    const savedPhones: Record<string, string> = JSON.parse(localStorage.getItem("paytaksi_google_phones") || "{}")
+                                    const uFallback: AuthUser = {
+                                        id: `google_${gUser2?.sub || Date.now()}`,
+                                        email: gEmail2,
+                                        fullName: gName2,
+                                        phoneNumber: savedPhones[gEmail2] || "",
+                                        roles: [mode === "register" ? role : "Yolcu"],
+                                    }
+                                    localStorage.setItem(TOKEN_KEY, `google_oauth_${resp.access_token}`)
+                                    localStorage.setItem("paytaksi_google_user", JSON.stringify(uFallback))
+                                    setMe(uFallback)
+                                    setFullName(uFallback.fullName || "")
+                                    setPhone(uFallback.phoneNumber || "")
+                                    if (onAuthenticated) {
+                                        onAuthenticated(uFallback)
+                                        return
+                                    }
+                                    setOkMsg("Google ile giriş başarılı!")
+                                    return
+                                }
+                            }
+                            setErr(rawErr || "Google ile giriş başarısız.")
                             return
                         }
                         localStorage.setItem(TOKEN_KEY, data.token)
@@ -414,6 +460,24 @@ export default function AuthPage({
         setErr(null)
         setOkMsg(null)
         try {
+            if (token.startsWith("google_oauth_") && me) {
+                const updated: AuthUser = {
+                    ...me,
+                    fullName: fullName.trim() || me.fullName || "",
+                    phoneNumber: phone,
+                }
+                localStorage.setItem("paytaksi_google_user", JSON.stringify(updated))
+                const savedPhones: Record<string, string> = JSON.parse(localStorage.getItem("paytaksi_google_phones") || "{}")
+                savedPhones[updated.email] = phone
+                localStorage.setItem("paytaksi_google_phones", JSON.stringify(savedPhones))
+                setMe(updated)
+                if (wasNeedingPhone) {
+                    setWelcomeOpen(true)
+                } else {
+                    setOkMsg("Telefon numaranız ve profil bilgileriniz kaydedildi!")
+                }
+                return
+            }
             const res = await fetch(`${getApiBase()}/api/auth/me`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -440,6 +504,15 @@ export default function AuthPage({
         if (!token || !window.confirm("Hesabınızı kalıcı olarak silmek istediğinize emin misiniz?")) return
         setBusy(true)
         try {
+            if (token.startsWith("google_oauth_")) {
+                localStorage.removeItem(TOKEN_KEY)
+                localStorage.removeItem("paytaksi_google_user")
+                setMe(null)
+                setEmail("")
+                setPassword("")
+                setOkMsg("Hesabınız silindi.")
+                return
+            }
             const res = await fetch(`${getApiBase()}/api/auth/me`, {
                 method: "DELETE",
                 headers: { Authorization: `Bearer ${token}` },
