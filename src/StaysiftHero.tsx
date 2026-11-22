@@ -874,14 +874,35 @@ export default function StaysiftHero(props: HeroProps) {
     const [menuOpen, setMenuOpen] = React.useState(false)
     const [findingTaxi, setFindingTaxi] = React.useState(false)
     const [callModalOpen, setCallModalOpen] = React.useState(false)
+    const [tariffModalOpen, setTariffModalOpen] = React.useState(false)
+    const [partnerModalOpen, setPartnerModalOpen] = React.useState(false)
+    const [partnerForm, setPartnerForm] = React.useState({ name: "", phone: "", plate: "" })
+    const [partnerSent, setPartnerSent] = React.useState(false)
     const [selectedTab, setSelectedTab] = React.useState<"wallet" | "guest">("wallet")
     const [walletAmount, setWalletAmount] = React.useState(250)
+    const [topupAgreed, setTopupAgreed] = React.useState(false)
     const [orderSuccess, setOrderSuccess] = React.useState(false)
     const [orderMode, setOrderMode] = React.useState<"member" | "cash">("member")
-    const [callStep, setCallStep] = React.useState<"choose" | "cash-phone">("choose")
+    const [callStep, setCallStep] = React.useState<"choose" | "cash-phone" | "topup">("choose")
     const [cashPhone, setCashPhone] = React.useState("")
     const [phoneErr, setPhoneErr] = React.useState<string | null>(null)
     const [searchWarn, setSearchWarn] = React.useState<string | null>(null)
+    const [authUser, setAuthUser] = React.useState<{ fullName?: string; email?: string; phoneNumber?: string } | null>(null)
+    const [fromCoord, setFromCoord] = React.useState<[number, number]>([38.6748, 39.2225])
+    const [toCoord, setToCoord] = React.useState<[number, number]>([38.6748, 39.2225])
+    const [hasFromPicked, setHasFromPicked] = React.useState(false)
+    const [hasToPicked, setHasToPicked] = React.useState(false)
+    const [routeInfo, setRouteInfo] = React.useState<{ km: number; min: number }>({ km: 0, min: 0 })
+    const [mapPickerOpen, setMapPickerOpen] = React.useState(false)
+    const [gpsConfirmMode, setGpsConfirmMode] = React.useState(false)
+    const [mapPickerField, setMapPickerField] = React.useState<"from" | "to">("from")
+    const [mapFromLabel, setMapFromLabel] = React.useState("")
+    const [mapToLabel, setMapToLabel] = React.useState("")
+    const mapPickerFieldRef = useRef<"from" | "to">("from")
+    const mapDivRef = useRef<HTMLDivElement>(null)
+    const leafletRef = useRef<any>(null)
+    const modalOpenRef = useRef(false)
+    modalOpenRef.current = Boolean(mapPickerOpen || callModalOpen || tariffModalOpen || partnerModalOpen || searchWarn)
     const fromTouchedRef = useRef(false)
     const whereTouchedRef = useRef(false)
     const menuWrapRef = useRef<HTMLDivElement>(null)
@@ -907,7 +928,21 @@ export default function StaysiftHero(props: HeroProps) {
 
     useEffect(() => {
         trackEvent("page_view")
+        const token = localStorage.getItem("paytaksi_jwt_token")
+        if (!token) return
+        fetch(`${getApiUrl()}/api/auth/me`, {
+            headers: { Authorization: `Bearer ${token}` },
+        })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((u) => {
+                if (u) setAuthUser(u)
+            })
+            .catch(() => {})
     }, [])
+
+    const userInitial = authUser
+        ? (authUser.fullName || authUser.email || "U").trim().charAt(0).toLocaleUpperCase("tr-TR")
+        : ""
 
     useEffect(() => {
         if (!compactNav && menuOpen) setMenuOpen(false)
@@ -950,20 +985,19 @@ export default function StaysiftHero(props: HeroProps) {
         activate()
         const US = userRef.current,
             now = performance.now() / 1000
-        // Eğer hedef ile kalkış aynıysa rotayı Elysium AVM'ye (0) veya Havalimanına (5) çevir
         if (US.region === ri) {
             US.region = ri === 0 ? 5 : 0
         }
         US.prev = ri
-        US.flyT = now // Uçuş ve mavi rota yayını (arc) anında baştan tetikle
+        US.flyT = now
         if (narrowRef.current) US.cardClosed = true
         const inp = uiRef.current.fromInput
-        if (inp) inp.value = label || REGIONS[ri].name
+        if (inp && label) inp.value = label
         fromTouchedRef.current = true
         setSearchWarn(null)
         setSug([])
     }
-    const goRegion = (ri: number) => {
+    const goRegion = (ri: number, label?: string) => {
         activate()
         const US = userRef.current,
             now = performance.now() / 1000
@@ -975,7 +1009,7 @@ export default function StaysiftHero(props: HeroProps) {
             US.cardClosed = false
         }
         const inp = uiRef.current.whereInput
-        if (inp) inp.value = REGIONS[ri].name
+        if (inp && label) inp.value = label
         whereTouchedRef.current = true
         setSearchWarn(null)
         setSug([])
@@ -983,15 +1017,539 @@ export default function StaysiftHero(props: HeroProps) {
 
     const searchTimeout = useRef<any>(null)
 
+    const YANDEX_API_KEY = "143da0f6-8fd6-4fec-a256-0e896c7cff60"
+
+    const computeRoute = async (c1: [number, number], c2: [number, number]) => {
+        // 1. Önce Yandex JS API ymaps.route varsa onu dene
+        const ym = (window as any).ymaps
+        if (ym && typeof ym.route === "function") {
+            try {
+                const route: any = await ym.route([c1, c2], { mapStateAutoApply: false, routingMode: "auto" })
+                const distM = Number(route?.getLength?.() || 0)
+                const timeS = Number(route?.getJamsTime?.() || route?.getTime?.() || 0)
+                if (distM > 50) {
+                    const km = Math.max(0.5, Math.round((distM / 1000) * 10) / 10)
+                    const min = Math.max(2, Math.round(timeS / 60))
+                    setRouteInfo({ km, min })
+                    return
+                }
+            } catch {}
+        }
+        // 2. OSRM karayolu motoru (anında ve kesintisiz gerçek sürüş mesafesi)
+        try {
+            const url = `https://router.project-osrm.org/route/v1/driving/${c1[1]},${c1[0]};${c2[1]},${c2[0]}?overview=false`
+            const res = await fetch(url)
+            if (res.ok) {
+                const data = await res.json()
+                const r = data?.routes?.[0]
+                if (r && r.distance > 0) {
+                    const km = Math.max(0.5, Math.round((r.distance / 1000) * 10) / 10)
+                    const min = Math.max(2, Math.round(r.duration / 60))
+                    setRouteInfo({ km, min })
+                    return
+                }
+            }
+        } catch {}
+        // 3. Haversine × 1.32 şehir içi yol katsayısı fallback
+        const toRad = (d: number) => (d * Math.PI) / 180
+        const dLat = toRad(c2[0] - c1[0])
+        const dLon = toRad(c2[1] - c1[1])
+        const a =
+            Math.sin(dLat / 2) ** 2 +
+            Math.cos(toRad(c1[0])) * Math.cos(toRad(c2[0])) * Math.sin(dLon / 2) ** 2
+        const airKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        const km = Math.max(0.8, Math.round(airKm * 1.32 * 10) / 10)
+        const min = Math.max(2, Math.round(km * 1.8))
+        setRouteInfo({ km, min })
+    }
+
+    useEffect(() => {
+        if (hasFromPicked && hasToPicked) {
+            computeRoute(fromCoord, toCoord)
+        }
+    }, [fromCoord, toCoord, hasFromPicked, hasToPicked])
+
+    const reverseGeocodeElazig = async (lat: number, lon: number): Promise<string> => {
+        try {
+            const r = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&accept-language=tr`
+            )
+            if (r.ok) {
+                const j = await r.json()
+                const a = j?.address || {}
+                const primary = a.amenity || a.building || a.shop || a.road || a.pedestrian || a.suburb || a.neighbourhood || ""
+                const secondary = a.suburb || a.neighbourhood || a.quarter || a.town || a.city_district || "Elazığ"
+                if (primary && secondary && primary !== secondary) return `${primary} · ${secondary}`
+                if (primary) return primary
+                if (j?.name) return String(j.name)
+            }
+        } catch {}
+        return "Mevcut Konum"
+    }
+
+    const openMapPicker = (initialField: "from" | "to", isGpsConfirm = false) => {
+        // Telefonda açık olan klavyeyi anında kapat
+        if (uiRef.current.fromInput) uiRef.current.fromInput.blur()
+        if (uiRef.current.whereInput) uiRef.current.whereInput.blur()
+        if (document.activeElement && (document.activeElement as HTMLElement).blur) {
+            ;(document.activeElement as HTMLElement).blur()
+        }
+        setSug([])
+        setSearchWarn(null)
+        setGpsConfirmMode(isGpsConfirm)
+        setMapPickerField(initialField)
+        mapPickerFieldRef.current = initialField
+        setMapFromLabel(uiRef.current.fromInput?.value || "")
+        setMapToLabel(uiRef.current.whereInput?.value || "")
+        setMapPickerOpen(true)
+    }
+
+    useEffect(() => {
+        mapPickerFieldRef.current = mapPickerField
+    }, [mapPickerField])
+
+    useEffect(() => {
+        if (!mapPickerOpen) {
+            if (leafletRef.current?.map) {
+                try {
+                    leafletRef.current.map.destroy()
+                } catch {}
+                leafletRef.current = null
+            }
+            return
+        }
+        let cancelled = false
+
+        const initYandexMap = () => {
+            if (cancelled) return
+            const ym = (window as any).ymaps
+            const el = mapDivRef.current
+            if (!ym || !el || leafletRef.current?.map) return
+
+            ym.ready(() => {
+                if (cancelled || !mapDivRef.current || leafletRef.current?.map) return
+                const startCenter = mapPickerFieldRef.current === "from" ? fromCoord : toCoord
+                const map = new ym.Map(
+                    mapDivRef.current,
+                    {
+                        center: startCenter,
+                        zoom: 15,
+                        controls: [],
+                    },
+                    {
+                        suppressMapOpenBlock: true,
+                        yandexMapDisablePoiInteractivity: true,
+                    }
+                )
+
+                // Özel minimalist cam kapsül Alınış (Mavi) ve Bırakılış (Siyah) pin tasarımları
+                const fromPinLayout = ym.templateLayoutFactory.createClass(
+                    `<div style="position:relative;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;pointer-events:auto;cursor:grab;user-select:none;">
+                        <div style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px 5px 8px;border-radius:999px;background:rgba(255,255,255,0.96);backdrop-filter:blur(12px);border:1px solid rgba(58,58,244,0.22);box-shadow:0 10px 24px -6px rgba(16,17,24,0.32),0 2px 6px rgba(58,58,244,0.18);font-family:'Inter Tight',system-ui,sans-serif;font-size:12px;font-weight:700;color:#101114;white-space:nowrap;letter-spacing:-0.01em;">
+                            <span style="width:8px;height:8px;border-radius:99px;background:#3A3AF4;box-shadow:0 0 0 3px rgba(58,58,244,0.18);display:inline-block;"></span>
+                            <span>Alınış</span>
+                        </div>
+                        <div style="width:2px;height:8px;background:linear-gradient(180deg,#3A3AF4,rgba(58,58,244,0.5));"></div>
+                        <div style="width:14px;height:14px;border-radius:99px;background:#3A3AF4;border:3px solid #fff;box-shadow:0 3px 10px rgba(58,58,244,0.55);margin-top:-1px;"></div>
+                    </div>`
+                )
+
+                const toPinLayout = ym.templateLayoutFactory.createClass(
+                    `<div style="position:relative;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;pointer-events:auto;cursor:grab;user-select:none;">
+                        <div style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px 5px 8px;border-radius:999px;background:rgba(16,17,20,0.94);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.22);box-shadow:0 10px 24px -6px rgba(16,17,24,0.42);font-family:'Inter Tight',system-ui,sans-serif;font-size:12px;font-weight:700;color:#fff;white-space:nowrap;letter-spacing:-0.01em;">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" style="display:block;flex:none;">
+                                <path d="M12 21s-7-5.6-7-11a7 7 0 1 1 14 0c0 5.4-7 11-7 11z"></path>
+                                <circle cx="12" cy="10" r="2.5"></circle>
+                            </svg>
+                            <span>Varış</span>
+                        </div>
+                        <div style="width:2px;height:8px;background:linear-gradient(180deg,#101114,rgba(16,17,20,0.5));"></div>
+                        <div style="width:14px;height:14px;border-radius:99px;background:#101114;border:3px solid #fff;box-shadow:0 3px 10px rgba(16,17,20,0.45);margin-top:-1px;"></div>
+                    </div>`
+                )
+
+                const pinShape = {
+                    type: "Rectangle",
+                    coordinates: [
+                        [-42, -52],
+                        [42, 6],
+                    ],
+                }
+
+                const fromPlacemark = new ym.Placemark(
+                    fromCoord,
+                    {},
+                    {
+                        iconLayout: fromPinLayout,
+                        iconShape: pinShape,
+                        draggable: true,
+                        zIndex: 1200,
+                        zIndexHover: 1300,
+                    }
+                )
+                const toPlacemark = new ym.Placemark(
+                    toCoord,
+                    {},
+                    {
+                        iconLayout: toPinLayout,
+                        iconShape: pinShape,
+                        draggable: true,
+                        zIndex: 1100,
+                        zIndexHover: 1250,
+                        visible: whereTouchedRef.current,
+                    }
+                )
+                const routeHalo = new ym.Polyline(
+                    [fromCoord, toCoord],
+                    {},
+                    { strokeColor: "#3A3AF4", strokeWidth: 10, strokeOpacity: 0.18, visible: fromTouchedRef.current && whereTouchedRef.current }
+                )
+                const routeLine = new ym.Polyline(
+                    [fromCoord, toCoord],
+                    {},
+                    { strokeColor: "#3A3AF4", strokeWidth: 4.5, strokeOpacity: 0.94, visible: fromTouchedRef.current && whereTouchedRef.current }
+                )
+
+                map.geoObjects.add(routeHalo)
+                map.geoObjects.add(routeLine)
+                map.geoObjects.add(fromPlacemark)
+                map.geoObjects.add(toPlacemark)
+
+                let routeAbort: AbortController | null = null
+                let addrTimer: any = null
+
+                const drawRealRoadRoute = async (c1: [number, number], c2: [number, number]) => {
+                    if (!fromTouchedRef.current || !whereTouchedRef.current) {
+                        routeHalo.options.set("visible", false)
+                        routeLine.options.set("visible", false)
+                        return
+                    }
+                    routeHalo.options.set("visible", true)
+                    routeLine.options.set("visible", true)
+                    if (routeAbort) routeAbort.abort()
+                    routeAbort = new AbortController()
+                    try {
+                        const url = `https://router.project-osrm.org/route/v1/driving/${c1[1]},${c1[0]};${c2[1]},${c2[0]}?overview=simplified&geometries=geojson`
+                        const res = await fetch(url, { signal: routeAbort.signal })
+                        if (res.ok) {
+                            const data = await res.json()
+                            const r = data?.routes?.[0]
+                            const coords = r?.geometry?.coordinates
+                            if (Array.isArray(coords) && coords.length > 1) {
+                                const pathLatLon = coords.map((pt: [number, number]) => [pt[1], pt[0]])
+                                routeHalo.geometry.setCoordinates(pathLatLon)
+                                routeLine.geometry.setCoordinates(pathLatLon)
+                                if (r.distance > 0) {
+                                    const km = Math.max(0.5, Math.round((r.distance / 1000) * 10) / 10)
+                                    const min = Math.max(2, Math.round(r.duration / 60))
+                                    setRouteInfo({ km, min })
+                                }
+                                return
+                            }
+                        }
+                    } catch {}
+                    routeHalo.geometry.setCoordinates([c1, c2])
+                    routeLine.geometry.setCoordinates([c1, c2])
+                }
+
+                // Sadece hem Alınış hem Varış seçilmişse karayolu rotasını çiz
+                if (fromTouchedRef.current && whereTouchedRef.current) {
+                    drawRealRoadRoute(fromCoord, toCoord)
+                }
+
+                const resolveAddress = async (lat: number, lon: number): Promise<string> => {
+                    try {
+                        const res: any = await ym.geocode([lat, lon], { results: 1 })
+                        const first = res?.geoObjects?.get?.(0)
+                        const name = first?.getAddressLine?.() || first?.properties?.get?.("name")
+                        if (name) return String(name).replace(/^Türkiye,\s*Elazığ,\s*/i, "")
+                    } catch {}
+                    return await reverseGeocodeElazig(lat, lon)
+                }
+
+                const applyCoord = (which: "from" | "to", lat: number, lon: number) => {
+                    const c: [number, number] = [lat, lon]
+                    if (which === "from") {
+                        fromPlacemark.geometry.setCoordinates(c)
+                        setFromCoord(c)
+                        fromTouchedRef.current = true
+                        setHasFromPicked(true)
+                    } else {
+                        toPlacemark.options.set("visible", true)
+                        toPlacemark.geometry.setCoordinates(c)
+                        setToCoord(c)
+                        whereTouchedRef.current = true
+                        setHasToPicked(true)
+                    }
+                    const curFrom = fromPlacemark.geometry.getCoordinates() as [number, number]
+                    const curTo = toPlacemark.geometry.getCoordinates() as [number, number]
+                    if (addrTimer) clearTimeout(addrTimer)
+                    addrTimer = setTimeout(async () => {
+                        if (fromTouchedRef.current && whereTouchedRef.current) {
+                            drawRealRoadRoute(curFrom, curTo)
+                        }
+                        const addr = await resolveAddress(lat, lon)
+                        if (cancelled) return
+                        if (which === "from") {
+                            setMapFromLabel(addr)
+                            if (uiRef.current.fromInput) uiRef.current.fromInput.value = addr
+                        } else {
+                            setMapToLabel(addr)
+                            if (uiRef.current.whereInput) uiRef.current.whereInput.value = addr
+                        }
+                    }, 160)
+                }
+
+                fromPlacemark.events.add("dragend", () => {
+                    const c = fromPlacemark.geometry.getCoordinates()
+                    setMapPickerField("from")
+                    applyCoord("from", c[0], c[1])
+                })
+                toPlacemark.events.add("dragend", () => {
+                    const c = toPlacemark.geometry.getCoordinates()
+                    setMapPickerField("to")
+                    applyCoord("to", c[0], c[1])
+                })
+                map.events.add("click", (e: any) => {
+                    const c = e.get("coords")
+                    if (Array.isArray(c) && c.length === 2) {
+                        applyCoord(mapPickerFieldRef.current, c[0], c[1])
+                    }
+                })
+
+                leafletRef.current = {
+                    map: {
+                        destroy: () => map.destroy(),
+                        panTo: (c: [number, number]) => map.panTo(c, { flying: true }),
+                        zoomIn: () => map.setZoom(Math.min(19, map.getZoom() + 1), { duration: 180 }),
+                        zoomOut: () => map.setZoom(Math.max(9, map.getZoom() - 1), { duration: 180 }),
+                        locateMe: () => {
+                            if (!navigator.geolocation) return
+                            navigator.geolocation.getCurrentPosition(
+                                (pos) => {
+                                    const { latitude, longitude } = pos.coords
+                                    const inElazig = latitude > 38.25 && latitude < 39.15 && longitude > 38.5 && longitude < 40.2
+                                    const c: [number, number] = inElazig ? [latitude, longitude] : [38.6748, 39.2225]
+                                    map.setCenter(c, 16, { duration: 220 })
+                                    applyCoord(mapPickerFieldRef.current, c[0], c[1])
+                                },
+                                () => {},
+                                { enableHighAccuracy: true, timeout: 5000 }
+                            )
+                        },
+                    },
+                    applyCoord,
+                }
+
+                // Sadece gerçek GPS izni alındığında haritayı kullanıcının konumuna kaydır ve yer adı biliniyorsa göster
+                if (mapPickerFieldRef.current === "from" && navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        async (pos) => {
+                            if (cancelled) return
+                            const { latitude, longitude } = pos.coords
+                            const inElazig = latitude > 38.25 && latitude < 39.15 && longitude > 38.5 && longitude < 40.2
+                            if (inElazig) {
+                                map.setCenter([latitude, longitude], 16)
+                                fromPlacemark.geometry.setCoordinates([latitude, longitude])
+                                setFromCoord([latitude, longitude])
+                                const addr = await resolveAddress(latitude, longitude)
+                                if (!cancelled) setMapFromLabel(addr || "Mevcut Konum")
+                            }
+                        },
+                        () => {},
+                        { enableHighAccuracy: true, timeout: 5000 }
+                    )
+                }
+            })
+        }
+
+        if ((window as any).ymaps) {
+            initYandexMap()
+        } else {
+            const existing = document.getElementById("yandex-maps-js") as HTMLScriptElement | null
+            if (existing) {
+                existing.addEventListener("load", initYandexMap)
+            } else {
+                const s = document.createElement("script")
+                s.id = "yandex-maps-js"
+                s.src = `https://api-maps.yandex.ru/2.1/?apikey=${YANDEX_API_KEY}&lang=tr_TR`
+                s.onload = initYandexMap
+                document.head.appendChild(s)
+            }
+        }
+
+        return () => {
+            cancelled = true
+            if (leafletRef.current?.map) {
+                try {
+                    leafletRef.current.map.destroy()
+                } catch {}
+                leafletRef.current = null
+            }
+        }
+    }, [mapPickerOpen])
+
+    const pickPlaceItem = (item: { name: string; lat: number; lon: number; ri?: number; isGps?: boolean; isMap?: boolean }, field: "from" | "to") => {
+        if (item.isMap) {
+            openMapPicker(field, false)
+            return
+        }
+        if (item.isGps) {
+            openMapPicker("from", true)
+            return
+        }
+        const ri = typeof item.ri === "number" ? item.ri : field === "from" ? 3 : 0
+
+        if (field === "from") {
+            setFromCoord([item.lat, item.lon])
+            setHasFromPicked(true)
+            if (uiRef.current.fromInput) {
+                uiRef.current.fromInput.value = item.name
+                uiRef.current.fromInput.blur()
+            }
+            fromTouchedRef.current = true
+            setSearchWarn(null)
+            setSug([])
+            setTimeout(() => goFromRegion(ri, item.name), 120)
+        } else {
+            setToCoord([item.lat, item.lon])
+            setHasToPicked(true)
+            if (uiRef.current.whereInput) {
+                uiRef.current.whereInput.value = item.name
+                uiRef.current.whereInput.blur()
+            }
+            whereTouchedRef.current = true
+            setSearchWarn(null)
+            setSug([])
+            setTimeout(() => {
+                goRegion(ri)
+                if (uiRef.current.whereInput) uiRef.current.whereInput.value = item.name
+            }, 120)
+        }
+    }
+
     const searchPlaces = (text: string, field: "from" | "to") => {
         setSugField(field)
-        if (field === "from") {
-            // Sadece "Mevcut Konum" seçeneği
-            setSug([{ slug: "gps", name: "Mevcut Konum", isGps: true }])
-        } else {
-            // Google Maps entegrasyonu gelene kadar arama önerisi kapalı
-            setSug([])
+        const q = (text || "").trim()
+        if (searchTimeout.current) clearTimeout(searchTimeout.current)
+
+        if (q.length === 0) {
+            if (field === "from") {
+                setSug([
+                    { slug: "gps", name: "Mevcut Konum", sub: "GPS · En yakın taksi ~2 dk", lat: 38.6748, lon: 39.2225, ri: 3, isGps: true },
+                    { slug: "map-from", name: "Haritadan Seç", sub: "Elazığ haritası üzerinden alınış noktası işaretle", lat: 38.6748, lon: 39.2225, ri: 3, isMap: true },
+                ])
+            } else {
+                setSug([
+                    { slug: "map-to", name: "Haritadan Seç", sub: "Elazığ haritası üzerinden varış noktası işaretle", lat: 38.6688, lon: 39.1932, ri: 0, isMap: true },
+                ])
+            }
+            return
         }
+
+        if (q.length < 2) return
+
+        searchTimeout.current = setTimeout(async () => {
+            const remoteItems: Array<{ slug: string; name: string; sub: string; lat: number; lon: number; ri: number }> = []
+            const addUnique = (name: string, sub: string, lat: number, lon: number, prefix: string) => {
+                if (!name || isNaN(lat) || isNaN(lon)) return
+                const cleanName = name.trim()
+                if (remoteItems.some((r) => r.name.toLocaleLowerCase("tr-TR") === cleanName.toLocaleLowerCase("tr-TR"))) return
+                remoteItems.push({
+                    slug: `${prefix}-${remoteItems.length}-${cleanName}`,
+                    name: cleanName,
+                    sub: sub || "Elazığ",
+                    lat,
+                    lon,
+                    ri: field === "from" ? 3 : 0,
+                })
+            }
+
+            let cleanQ = q
+                .replace(/\belaz[ıiâ]ğ\b/gi, "")
+                .replace(/\bhavaliman[ıi]\b/gi, "havaalanı")
+                .trim()
+            if (!cleanQ) cleanQ = q
+
+            // 1. Yandex Maps JS API (ymaps.geocode)
+            if ((window as any).ymaps?.geocode) {
+                try {
+                    const res: any = await (window as any).ymaps.geocode("Elazığ " + cleanQ, {
+                        boundedBy: [
+                            [38.4, 38.8],
+                            [38.95, 39.65],
+                        ],
+                        strictBounds: true,
+                        results: 4,
+                    })
+                    const geoObjects = res?.geoObjects
+                    if (geoObjects && typeof geoObjects.each === "function") {
+                        geoObjects.each((obj: any) => {
+                            const coords = obj.geometry?.getCoordinates?.()
+                            const name = obj.properties?.get?.("name")
+                            const desc = obj.properties?.get?.("description")
+                            if (Array.isArray(coords) && coords.length === 2 && name) {
+                                addUnique(
+                                    String(name),
+                                    String(desc || "Elazığ").replace(/^Türkiye,\s*/i, ""),
+                                    Number(coords[0]),
+                                    Number(coords[1]),
+                                    "ym"
+                                )
+                            }
+                        })
+                    }
+                } catch {}
+            }
+
+            // 2. Yedek arama (Eğer Yandex anahtarı henüz aktifleşmediyse boş kalmaması için)
+            if (remoteItems.length < 3) {
+                try {
+                    const osmUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cleanQ)}&viewbox=38.60,39.00,39.70,38.35&bounded=1&limit=6&accept-language=tr`
+                    const osmRes = await fetch(osmUrl)
+                    if (osmRes.ok) {
+                        const osmList = await osmRes.json()
+                        ;(osmList || []).forEach((it: any) => {
+                            const parts = String(it.display_name || "").split(",").map((s) => s.trim())
+                            const title = it.name || parts[0] || cleanQ
+                            const sub = parts
+                                .filter((p) => p && p !== title && !/^(Türkiye|Doğu Anadolu Bölgesi|\d{5})$/i.test(p))
+                                .slice(0, 2)
+                                .join(" · ") || "Elazığ"
+                            addUnique(title, sub, Number(it.lat), Number(it.lon), "osm")
+                        })
+                    }
+                } catch {}
+            }
+
+            // 2. Photon Canlı Arama API (Elazığ bbox kilitli, sadece cleanQ ile)
+            if (remoteItems.length < 3) {
+                try {
+                    const pUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(cleanQ)}&lat=38.6748&lon=39.2225&bbox=38.60,38.35,39.70,39.00&limit=8`
+                    const pRes = await fetch(pUrl)
+                    if (pRes.ok) {
+                        const pData = await pRes.json()
+                        ;(pData?.features || []).forEach((f: any) => {
+                            const props = f?.properties || {}
+                            const coords = f?.geometry?.coordinates || []
+                            const lon = Number(coords[0])
+                            const lat = Number(coords[1])
+                            const title = props.name || props.street || props.district || ""
+                            if (!title) return
+                            // Kullanıcı "yolu" yazmadıysa şehirlerarası çevre yollarını filtrele
+                            if (!/yol/i.test(cleanQ) && /^El[aâ]z[ıi]ğ-.*yolu$/i.test(title)) return
+                            const subParts = [props.district, props.street, props.city || "Elazığ"].filter(
+                                (x) => x && x !== title
+                            )
+                            addUnique(title, subParts.slice(0, 2).join(" · ") || "Elazığ", lat, lon, "ph")
+                        })
+                    }
+                } catch {}
+            }
+
+            const top3 = remoteItems.slice(0, 3)
+            setSug(top3)
+        }, 200)
     }
 
     const onFrom = (e: any) => {
@@ -1014,10 +1572,13 @@ export default function StaysiftHero(props: HeroProps) {
         US.flyT = now
         US.selKey = ""
         US.cardClosed = false
-        if (uiRef.current.fromInput)
-            uiRef.current.fromInput.value = REGIONS[US.prev].name
-        if (uiRef.current.whereInput)
-            uiRef.current.whereInput.value = REGIONS[US.region].name
+        const prevFromVal = uiRef.current.fromInput?.value || REGIONS[US.prev].name
+        const prevWhereVal = uiRef.current.whereInput?.value || REGIONS[US.region].name
+        if (uiRef.current.fromInput) uiRef.current.fromInput.value = prevWhereVal
+        if (uiRef.current.whereInput) uiRef.current.whereInput.value = prevFromVal
+        const oldFromC = fromCoord
+        setFromCoord(toCoord)
+        setToCoord(oldFromC)
         setSug([])
     }
     const pickDay = (d: number) => {
@@ -2098,15 +2659,26 @@ export default function StaysiftHero(props: HeroProps) {
         render(start)
         let raf = 0,
             alive = true,
-            t0 = performance.now() - start * 1000
+            t0 = performance.now() - start * 1000,
+            lastFrame = 0
         const reduce =
             window.matchMedia &&
             window.matchMedia("(prefers-reduced-motion: reduce)").matches
         const loop = () => {
             if (!alive) return
-            mouse.x += (mouse.sx - mouse.x) * 0.06
-            render((performance.now() - t0) / 1000, mouse.x, mouse.y)
             raf = requestAnimationFrame(loop)
+            // Modal açıkken, sekme gizliyken veya aşağı kaydırılmışken 3D WebGL çizimini durdur (0% CPU/GPU tüketimi)
+            if (document.hidden || modalOpenRef.current || window.scrollY > window.innerHeight * 0.85) {
+                return
+            }
+            const now = performance.now()
+            // Mobilde 30 FPS sınırı ile işlemci ve pil yükünü yarıya indir
+            if (isMobileDevice && now - lastFrame < 33) {
+                return
+            }
+            lastFrame = now
+            mouse.x += (mouse.sx - mouse.x) * 0.06
+            render((now - t0) / 1000, mouse.x, mouse.y)
         }
         g0.hero = {
             render: (tt: number, mx = 0, my = 0) => {
@@ -2371,11 +2943,139 @@ export default function StaysiftHero(props: HeroProps) {
                 color: #55575E;
                 font-weight: 500;
               }
+              .td-call-btn {
+                position: relative;
+                isolation: isolate;
+                overflow: hidden;
+                height: 48px;
+                padding: 0 22px;
+                border-radius: 999px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                flex: none;
+                margin-left: 4px;
+                cursor: pointer;
+                font-family: ${SANS};
+                font-weight: 700;
+                font-size: 14px;
+                letter-spacing: -0.015em;
+                color: #0F172A;
+                background: linear-gradient(155deg, rgba(226, 238, 255, 0.62) 0%, rgba(190, 215, 255, 0.38) 52%, rgba(155, 192, 255, 0.28) 100%);
+                backdrop-filter: blur(32px) saturate(195%);
+                -webkit-backdrop-filter: blur(32px) saturate(195%);
+                border: 1px solid rgba(255, 255, 255, 0.88);
+                box-shadow:
+                  0 18px 40px -12px rgba(58, 108, 244, 0.26),
+                  0 4px 12px -4px rgba(16, 17, 24, 0.08),
+                  0 0 0 1px rgba(96, 148, 255, 0.22),
+                  inset 0 1px 1px rgba(255, 255, 255, 0.96),
+                  inset 0 -1px 0 rgba(185, 212, 255, 0.45);
+                transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+              }
+              .td-call-btn:hover {
+                background: linear-gradient(155deg, rgba(232, 242, 255, 0.76) 0%, rgba(196, 220, 255, 0.52) 100%);
+                border-color: rgba(96, 148, 255, 0.45);
+                transform: translateY(-1.5px) scale(1.02);
+                box-shadow:
+                  0 22px 48px -10px rgba(58, 108, 244, 0.34),
+                  0 0 0 1px rgba(96, 148, 255, 0.32),
+                  inset 0 1px 1px #fff;
+              }
+              .td-call-btn:active {
+                transform: scale(0.97);
+              }
+              .td-call-btn > .td-glass {
+                position: absolute;
+                inset: 0;
+                background: linear-gradient(135deg, rgba(255,255,255,0.52) 0%, rgba(195,220,255,0.10) 58%, rgba(88,140,255,0.14) 100%);
+                pointer-events: none;
+                border-radius: inherit;
+              }
+              .td-call-btn > .td-sheen,
+              .td-em > .td-sheen {
+                position: absolute;
+                top: 0;
+                left: -130%;
+                width: 75%;
+                height: 100%;
+                background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.82), transparent);
+                transform: skewX(-22deg);
+                transition: left 0.72s ease;
+                pointer-events: none;
+              }
+              .td-call-btn:hover > .td-sheen,
+              .td-call-btn:hover .td-em > .td-sheen {
+                left: 175%;
+              }
+              .td-call-btn > .td-hl {
+                position: absolute;
+                top: 0;
+                left: 14%;
+                right: 14%;
+                height: 1px;
+                background: linear-gradient(90deg, transparent, rgba(255,255,255,0.98), transparent);
+                pointer-events: none;
+              }
+              .td-em {
+                position: relative;
+                width: 34px;
+                height: 34px;
+                border-radius: 999px;
+                display: grid;
+                place-items: center;
+                flex: none;
+                overflow: hidden;
+                color: #3A3AF4;
+                background: linear-gradient(155deg, rgba(255,255,255,0.92) 0%, rgba(58,58,244,0.14) 100%);
+                border: 1px solid rgba(255,255,255,0.95);
+                box-shadow:
+                  0 6px 14px -5px rgba(58,58,244,0.35),
+                  0 0 0 0.5px rgba(58,58,244,0.18),
+                  inset 0 1px 1px #fff;
+                transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.28s ease;
+              }
+              .td-call-btn:hover .td-em {
+                transform: scale(1.07);
+                background: linear-gradient(155deg, #fff 0%, rgba(58,58,244,0.22) 100%);
+              }
+              .td-em > .td-glass {
+                position: absolute;
+                inset: 0;
+                background: radial-gradient(110% 90% at 30% 15%, rgba(255,255,255,0.85), rgba(255,255,255,0) 65%);
+                pointer-events: none;
+                border-radius: inherit;
+              }
+              .td-em > i {
+                width: 17px;
+                height: 17px;
+                display: block;
+                background-color: #3A3AF4;
+                -webkit-mask-image: var(--m);
+                mask-image: var(--m);
+                -webkit-mask-size: contain;
+                mask-size: contain;
+                -webkit-mask-repeat: no-repeat;
+                mask-repeat: no-repeat;
+                -webkit-mask-position: center;
+                mask-position: center;
+                position: relative;
+                z-index: 1;
+              }
 
               /* ---------- Taksi Çağır modalı: katmanlı buzlu cam ---------- */
               @keyframes ptFade { from { opacity: 0 } to { opacity: 1 } }
               @keyframes ptIn { from { opacity: 0; transform: translateY(14px) scale(.98) } to { opacity: 1; transform: none } }
               @keyframes ptUp { from { opacity: 0; transform: translateY(40px) } to { opacity: 1; transform: none } }
+              @keyframes ptMapExpand {
+                0% { opacity: 0; transform: scale(0.66) translateY(-10px); border-radius: 36px; }
+                100% { opacity: 1; transform: scale(1) translateY(0); }
+              }
+              .pt-map-card {
+                transform-origin: 50% 42%;
+                animation: ptMapExpand .42s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+                will-change: transform, opacity;
+              }
               @keyframes ptPulse { 0% { box-shadow: 0 0 0 0 rgba(34,197,94,.55) } 100% { box-shadow: 0 0 0 7px rgba(34,197,94,0) } }
               .pt-overlay {
                 position: fixed; inset: 0; z-index: 9999;
@@ -2491,8 +3191,10 @@ export default function StaysiftHero(props: HeroProps) {
               .pt-close:focus-visible, .pt-primary:focus-visible, .pt-ghost:focus-visible { outline: 2px solid ${C.accent}; outline-offset: 3px; }
               /* telefonda ekranı ortalayan kompakt kart */
               @media (max-width: 700px) {
-                .pt-overlay { align-items: center; padding: 14px; }
-                .pt-card { padding: 20px 18px 18px; border-radius: 28px; }
+                .pt-overlay { align-items: center; padding: 12px; }
+                .pt-card { padding: 18px 15px 16px; border-radius: 26px; }
+                .pt-pill { padding: 5px 6px 5px 10px; font-size: 11.5px; gap: 5px; }
+                .pt-pill-tag { font-size: 10.5px; padding: 2px 6px; }
               }
               @media (prefers-reduced-motion: reduce) {
                 .pt-overlay, .pt-card, .pt-live { animation: none; }
@@ -2699,16 +3401,23 @@ export default function StaysiftHero(props: HeroProps) {
                                     whiteSpace: "nowrap",
                                 }}
                             >
-                                <a className="ss-link" href="#tarife">
+                                <a
+                                    className="ss-link"
+                                    href="#tarife"
+                                    onClick={(e) => {
+                                        e.preventDefault()
+                                        setTariffModalOpen(true)
+                                    }}
+                                >
                                     Tarifeler
                                 </a>
-                                <a className="ss-link" href="#noktalar">
-                                    Popüler Noktalar
+                                <a
+                                    className="ss-link"
+                                    href="/bizimle-calisin"
+                                >
+                                    Bizimle Çalışın
                                 </a>
-                                <a className="ss-link" href="#durak">
-                                    Duraklarımız
-                                </a>
-                                <a className="ss-link" href="#hakkimizda">
+                                <a className="ss-link" href="/hakkimizda">
                                     Hakkımızda
                                 </a>
                             </div>
@@ -2724,54 +3433,75 @@ export default function StaysiftHero(props: HeroProps) {
                         >
                             {!compactNav && (
                                 <>
-                                    <a
-                                        className="ss-link"
-                                        href="tel:04242330023"
-                                        style={{
-                                            fontSize: 14,
-                                            fontWeight: 500,
-                                            marginRight: 6,
-                                            whiteSpace: "nowrap",
-                                        }}
-                                    >
-                                        0424 233 00 23
-                                    </a>
-                                    <a
-                                        className="ss-btn"
-                                        href="/giris"
-                                        style={{
-                                            padding: "8px 14px",
-                                            borderRadius: 999,
-                                            border: "1px solid rgba(16, 17, 20, 0.14)",
-                                            background: "rgba(255, 255, 255, 0.78)",
-                                            color: C.ink,
-                                            textDecoration: "none",
-                                            fontWeight: 600,
-                                            fontSize: 13.5,
-                                            whiteSpace: "nowrap",
-                                        }}
-                                    >
-                                        Giriş Yap
-                                    </a>
-                                    <a
-                                        className="ss-btn"
-                                        href="#taksi-cagir"
-                                        style={{
-                                            padding: "8px 16px",
-                                            borderRadius: 999,
-                                            background: C.accent,
-                                            color: "#fff",
-                                            textDecoration: "none",
-                                            fontWeight: 600,
-                                            fontSize: 14,
-                                            whiteSpace: "nowrap",
-                                        }}
-                                    >
-                                        Taksi Çağır
-                                    </a>
+                                    {authUser ? (
+                                        <a
+                                            className="ss-btn ss-focus"
+                                            href="/giris"
+                                            aria-label="Profil"
+                                            title={authUser.fullName || authUser.email || "Profil"}
+                                            style={{
+                                                width: 36,
+                                                height: 36,
+                                                borderRadius: 999,
+                                                background: C.ink,
+                                                color: "#fff",
+                                                textDecoration: "none",
+                                                fontWeight: 700,
+                                                fontSize: 14,
+                                                display: "grid",
+                                                placeItems: "center",
+                                                boxShadow: "0 4px 12px -4px rgba(16,17,20,0.35)",
+                                                flex: "none",
+                                            }}
+                                        >
+                                            {userInitial}
+                                        </a>
+                                    ) : (
+                                        <a
+                                            className="ss-btn"
+                                            href="/giris"
+                                            style={{
+                                                padding: "8px 14px",
+                                                borderRadius: 999,
+                                                border: "1px solid rgba(16, 17, 20, 0.14)",
+                                                background: "rgba(255, 255, 255, 0.78)",
+                                                color: C.ink,
+                                                textDecoration: "none",
+                                                fontWeight: 600,
+                                                fontSize: 13.5,
+                                                whiteSpace: "nowrap",
+                                            }}
+                                        >
+                                            Giriş Yap
+                                        </a>
+                                    )}
                                 </>
                             )}
                         {/* Hamburger Menü Butonu: Geniş masaüstünde (compactNav=false) gizlenir; dar ekranda ve telefonda görünür */}
+                        {compactNav && authUser && (
+                            <a
+                                className="ss-btn ss-focus"
+                                href="/giris"
+                                aria-label="Profil"
+                                title={authUser.fullName || authUser.email || "Profil"}
+                                style={{
+                                    width: 38,
+                                    height: 38,
+                                    borderRadius: 999,
+                                    background: C.ink,
+                                    color: "#fff",
+                                    textDecoration: "none",
+                                    fontWeight: 700,
+                                    fontSize: 14,
+                                    display: "grid",
+                                    placeItems: "center",
+                                    boxShadow: "0 4px 12px -4px rgba(16,17,20,0.35)",
+                                    flex: "none",
+                                }}
+                            >
+                                {userInitial}
+                            </a>
+                        )}
                         {compactNav && (
                             <button
                                 aria-label="Menüyü Aç"
@@ -2853,17 +3583,22 @@ export default function StaysiftHero(props: HeroProps) {
                             }}
                         >
                             {[
-                                { title: "Tarifeler", desc: "Km & sabit ücret", href: "#tarife" },
-                                { title: "Popüler Noktalar", desc: "Havalimanı, AVM, Hastane", href: "#noktalar" },
-                                { title: "Duraklarımız", desc: "Elazığ geneli 7/24", href: "#durak" },
-                                { title: "Hakkımızda", desc: "Paytaksi bilgi", href: "#hakkimizda" },
+                                { title: "Tarifeler", desc: "İndi-bindi & km ücreti", href: "#tarife", action: "tariff" },
+                                { title: "Bizimle Çalışın", desc: "Taksici olarak katıl", href: "/bizimle-calisin", action: "partner" },
+                                { title: "Hakkımızda", desc: "Paytaksi bilgi", href: "/hakkimizda", action: "about" },
                             ].map((item) => (
                                 <a
                                     key={item.title}
                                     href={item.href}
                                     tabIndex={0}
                                     className="ss-focus"
-                                    onClick={() => setMenuOpen(false)}
+                                    onClick={(e) => {
+                                        setMenuOpen(false)
+                                        if (item.action === "tariff") {
+                                            e.preventDefault()
+                                            setTariffModalOpen(true)
+                                        }
+                                    }}
                                     style={{
                                         display: "flex",
                                         justifyContent: "space-between",
@@ -2902,64 +3637,27 @@ export default function StaysiftHero(props: HeroProps) {
                                     </svg>
                                 </a>
                             ))}
-                            <div style={{ padding: "8px 4px 3px", display: "flex", flexDirection: "column", gap: 6 }}>
-                                <a
-                                    href="/giris"
-                                    onClick={() => setMenuOpen(false)}
-                                    style={{
-                                        width: "100%",
-                                        textAlign: "center",
-                                        padding: "8px 0px",
-                                        borderRadius: 10,
-                                        background: C.ink,
-                                        fontWeight: 600,
-                                        fontSize: 12.5,
-                                        color: "#fff",
-                                        textDecoration: "none",
-                                    }}
-                                >
-                                    Giriş Yap
-                                </a>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setMenuOpen(false)
-                                        doSearch(null)
-                                    }}
-                                    style={{
-                                        width: "100%",
-                                        textAlign: "center",
-                                        padding: "8px 0px",
-                                        borderRadius: 10,
-                                        background: C.accent,
-                                        border: 0,
-                                        fontWeight: 600,
-                                        fontSize: 12.5,
-                                        color: "#fff",
-                                        cursor: "pointer",
-                                    }}
-                                >
-                                    Hemen Çağır
-                                </button>
-                                <a
-                                    href="tel:04242330023"
-                                    onClick={() => setMenuOpen(false)}
-                                    style={{
-                                        width: "100%",
-                                        textAlign: "center",
-                                        padding: "7px 0px",
-                                        borderRadius: 10,
-                                        border: "1px solid rgba(16, 17, 20, 0.1)",
-                                        fontWeight: 600,
-                                        fontSize: 12,
-                                        color: C.ink,
-                                        textDecoration: "none",
-                                        background: "#fff",
-                                    }}
-                                >
-                                    📞 0424 233 00 23
-                                </a>
-                            </div>
+                            {!authUser && (
+                                <div style={{ padding: "8px 4px 3px", display: "flex", flexDirection: "column", gap: 6 }}>
+                                    <a
+                                        href="/giris"
+                                        onClick={() => setMenuOpen(false)}
+                                        style={{
+                                            width: "100%",
+                                            textAlign: "center",
+                                            padding: "8px 0px",
+                                            borderRadius: 10,
+                                            background: C.ink,
+                                            fontWeight: 600,
+                                            fontSize: 12.5,
+                                            color: "#fff",
+                                            textDecoration: "none",
+                                        }}
+                                    >
+                                        Giriş Yap
+                                    </a>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -3049,7 +3747,10 @@ export default function StaysiftHero(props: HeroProps) {
                         ? "calc(12.5% + 104px)"
                         : "calc(12.5% + clamp(250px, 26vw, 300px))",
                     display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
                     justifyContent: "center",
+                    gap: 10,
                     zIndex: 6,
                     padding: narrow ? "0 12px" : 0,
                 }}
@@ -3131,8 +3832,7 @@ export default function StaysiftHero(props: HeroProps) {
                                 onKeyDown={(e) => {
                                     if (e.key === "Enter" && sug.length) {
                                         e.preventDefault()
-                                        goFromRegion(sug[0].i)
-                                        ;(e.currentTarget as any).blur()
+                                        pickPlaceItem(sug[0], "from")
                                     }
                                     if (e.key === "Escape") setSug([])
                                 }}
@@ -3248,8 +3948,7 @@ export default function StaysiftHero(props: HeroProps) {
                                 onKeyDown={(e) => {
                                     if (e.key === "Enter" && sug.length) {
                                         e.preventDefault()
-                                        goRegion(sug[0].i)
-                                        ;(e.currentTarget as any).blur()
+                                        pickPlaceItem(sug[0], "to")
                                     }
                                     if (e.key === "Escape") setSug([])
                                 }}
@@ -3283,53 +3982,17 @@ export default function StaysiftHero(props: HeroProps) {
 
                     <button
                         type="button"
-                        className="ss-btn"
+                        className="td-call-btn ss-focus"
                         onClick={doSearch}
                         aria-label="Çağır"
-                        style={{
-                            height: 48,
-                            padding: "0 18px",
-                            borderRadius: 999,
-                            background: C.accent,
-                            color: "#fff",
-                            border: 0,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: 6,
-                            flex: "none",
-                            marginLeft: 4,
-                            cursor: "pointer",
-                            fontWeight: 600,
-                            fontSize: 13,
-                            letterSpacing: "-0.01em",
-                        }}
                     >
-                        <span>Çağır</span>
-                        <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 18 18"
-                            aria-hidden="true"
-                        >
-                            <circle
-                                cx="7.6"
-                                cy="7.6"
-                                r="5.4"
-                                fill="none"
-                                stroke="#fff"
-                                strokeWidth="1.9"
-                            />
-                            <path
-                                d="M11.6 11.6 16 16"
-                                stroke="#fff"
-                                strokeWidth="1.9"
-                                strokeLinecap="round"
-                            />
-                        </svg>
+                        <span className="td-glass" aria-hidden="true" />
+                        <span className="td-sheen" aria-hidden="true" />
+                        <span className="td-hl" aria-hidden="true" />
+                        <span style={{ position: "relative", zIndex: 1 }}>Çağır</span>
                     </button>
                     {/* place suggestions */}
-                    {sug.length > 0 && sugField === "from" && (
+                    {sug.length > 0 && (
                         <div
                             role="listbox"
                             aria-label="Konum Önerileri"
@@ -3337,115 +4000,173 @@ export default function StaysiftHero(props: HeroProps) {
                                 ...glass,
                                 background: "rgba(252,251,248,0.985)",
                                 position: "absolute",
-                                left: 0,
+                                left: sugField === "to" && !narrow ? 240 : 0,
                                 top: "calc(100% + 8px)",
-                                width: narrow ? "100%" : 330,
+                                width: narrow ? "100%" : 360,
+                                maxHeight: 330,
+                                overflowY: "auto",
                                 borderRadius: 18,
                                 padding: 6,
-                                zIndex: 3,
+                                zIndex: 30,
                                 boxSizing: "border-box",
                             }}
                         >
-                            <button
-                                type="button"
-                                className="ss-field ss-focus"
-                                onMouseDown={(e) => {
-                                    e.preventDefault()
-                                    // 1. Önce aktif olan inputu blur yapıp klavyeyi tamamen aşağı indiriyoruz
-                                    if (uiRef.current.fromInput) {
-                                        uiRef.current.fromInput.value = "Mevcut Konum"
-                                        fromTouchedRef.current = true
-                                        setSearchWarn(null)
-                                        uiRef.current.fromInput.blur()
-                                    }
-                                    if (uiRef.current.whereInput) {
-                                        uiRef.current.whereInput.blur()
-                                    }
-                                    if (document.activeElement && (document.activeElement as HTMLElement).blur) {
-                                        (document.activeElement as HTMLElement).blur()
-                                    }
-                                    setSug([])
-
-                                    // 2. Mobil klavyenin kapanması ve ekranın yerine oturması için ~280ms bekleyip ardından animasyonu başlatıyoruz
-                                    setTimeout(() => {
-                                        // Mevcut konum (Çarşı · 3) kalkış noktası olarak atanır ve hedefe doğru mavi rota yayını başlatır
-                                        goFromRegion(
-                                            3,
-                                            "Mevcut Konum"
-                                        )
-                                    }, 280)
-                                }}
-                                style={{
-                                    width: "100%",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 12,
-                                    padding: 8,
-                                    border: 0,
-                                    background: "transparent",
-                                    borderRadius: 12,
-                                    cursor: "pointer",
-                                    textAlign: "left",
-                                    fontFamily: SANS,
-                                    color: C.ink,
-                                }}
-                            >
-                                <span
+                            {sug.map((item: any) => (
+                                <button
+                                    key={item.slug || item.name}
+                                    type="button"
+                                    className="ss-field ss-focus"
+                                    onMouseDown={(e) => {
+                                        e.preventDefault()
+                                        pickPlaceItem(item, sugField)
+                                    }}
                                     style={{
-                                        width: 40,
-                                        height: 40,
-                                        borderRadius: 10,
-                                        background: "rgba(58,58,244,0.1)",
-                                        display: "grid",
-                                        placeItems: "center",
-                                        color: C.accent,
-                                        flex: "none",
+                                        width: "100%",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 12,
+                                        padding: "8px 10px",
+                                        border: 0,
+                                        background: "transparent",
+                                        borderRadius: 12,
+                                        cursor: "pointer",
+                                        textAlign: "left",
+                                        fontFamily: SANS,
+                                        color: C.ink,
                                     }}
                                 >
-                                    <svg
-                                        width="18"
-                                        height="18"
-                                        viewBox="0 0 18 18"
-                                        fill="none"
-                                    >
-                                        <circle
-                                            cx="9"
-                                            cy="9"
-                                            r="3.2"
-                                            fill={C.accent}
-                                        />
-                                        <circle
-                                            cx="9"
-                                            cy="9"
-                                            r="6.5"
-                                            stroke={C.accent}
-                                            strokeWidth="1.5"
-                                        />
-                                    </svg>
-                                </span>
-                                <span style={{ flex: 1 }}>
                                     <span
                                         style={{
-                                            display: "block",
-                                            fontSize: 14.5,
-                                            fontWeight: 600,
+                                            width: 38,
+                                            height: 38,
+                                            borderRadius: 10,
+                                            background: item.isGps ? "rgba(58,58,244,0.1)" : "rgba(16,17,20,0.055)",
+                                            display: "grid",
+                                            placeItems: "center",
+                                            color: item.isGps ? C.accent : C.ink,
+                                            flex: "none",
                                         }}
                                     >
-                                        Mevcut Konum
+                                        {item.isGps ? (
+                                            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                                                <circle cx="9" cy="9" r="3.2" fill={C.accent} />
+                                                <circle cx="9" cy="9" r="6.5" stroke={C.accent} strokeWidth="1.5" />
+                                            </svg>
+                                        ) : (
+                                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M12 21s-7-5.6-7-11a7 7 0 1 1 14 0c0 5.4-7 11-7 11z" />
+                                                <circle cx="12" cy="10" r="2.5" />
+                                            </svg>
+                                        )}
                                     </span>
-                                    <span
-                                        style={{
-                                            fontSize: 12.5,
-                                            color: C.ink2,
-                                        }}
-                                    >
-                                        GPS · En yakın taksi ~2 dk
+                                    <span style={{ flex: 1, minWidth: 0 }}>
+                                        <span
+                                            style={{
+                                                display: "block",
+                                                fontSize: 14,
+                                                fontWeight: 600,
+                                                whiteSpace: "nowrap",
+                                                overflow: "hidden",
+                                                textOverflow: "ellipsis",
+                                            }}
+                                        >
+                                            {item.name}
+                                        </span>
+                                        <span
+                                            style={{
+                                                display: "block",
+                                                fontSize: 12,
+                                                color: C.ink2,
+                                                whiteSpace: "nowrap",
+                                                overflow: "hidden",
+                                                textOverflow: "ellipsis",
+                                            }}
+                                        >
+                                            {item.sub || "Elazığ"}
+                                        </span>
                                     </span>
-                                </span>
-                            </button>
+                                </button>
+                            ))}
                         </div>
                     )}
                 </div>
+
+                {/* Otomatik Hesaplanan Canlı Fiyat & Mesafe Kartı (Sadece hem Nereden hem Nereye seçildiğinde görünür) */}
+                {sug.length === 0 && hasFromPicked && hasToPicked && routeInfo.km > 0 && (() => {
+                    const liveBase = Math.max(250, Math.round((50 + routeInfo.km * 45) / 5) * 5)
+                    const liveMember = Math.round(liveBase * 0.85)
+                    return (
+                        <button
+                            type="button"
+                            onClick={doSearch}
+                            className="ss-btn ss-focus"
+                            style={{
+                                ...glass,
+                                background:
+                                    "linear-gradient(155deg, rgba(255,255,255,0.82) 0%, rgba(247,247,250,0.64) 50%, rgba(236,237,243,0.54) 100%)",
+                                backdropFilter: "blur(28px) saturate(185%)",
+                                WebkitBackdropFilter: "blur(28px) saturate(185%)",
+                                border: "1px solid rgba(255,255,255,0.88)",
+                                boxShadow:
+                                    "0 18px 42px -14px rgba(16,17,24,0.22), 0 0 0 0.5px rgba(16,17,20,0.06), inset 0 1px 0 rgba(255,255,255,0.95)",
+                                borderRadius: narrow ? 18 : 999,
+                                padding: narrow ? "9px 11px 9px 13px" : "8px 10px 8px 16px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: narrow ? "space-between" : "center",
+                                gap: narrow ? 8 : 14,
+                                cursor: "pointer",
+                                fontFamily: SANS,
+                                color: C.ink,
+                                width: narrow ? "100%" : "auto",
+                                maxWidth: "100%",
+                                boxSizing: "border-box",
+                            }}
+                        >
+                            {narrow ? (
+                                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2, minWidth: 0 }}>
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 600, color: C.ink2 }}>
+                                        <span className="pt-live" style={{ width: 6, height: 6 }} />
+                                        <span style={{ fontFamily: MONO, color: C.ink, fontWeight: 600 }}>{routeInfo.km} km</span>
+                                        <span>· ~{routeInfo.min} dk</span>
+                                    </span>
+                                    <span style={{ display: "inline-flex", alignItems: "baseline", gap: 4 }}>
+                                        <span style={{ fontSize: 11.5, fontWeight: 600, color: C.ink2 }}>Sabit ücret:</span>
+                                        <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 700, color: C.ink }}>{liveBase} TL</span>
+                                    </span>
+                                </div>
+                            ) : (
+                                <>
+                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 600, color: C.ink2, whiteSpace: "nowrap" }}>
+                                        <span className="pt-live" />
+                                        <span style={{ fontFamily: MONO, color: C.ink, fontWeight: 600 }}>{routeInfo.km} km</span>
+                                        <span>· ~{routeInfo.min} dk</span>
+                                    </span>
+
+                                    <span style={{ width: 1, height: 14, background: "rgba(16,17,20,0.12)" }} />
+
+                                    <span style={{ display: "inline-flex", alignItems: "baseline", gap: 5, whiteSpace: "nowrap" }}>
+                                        <span style={{ fontSize: 11.5, fontWeight: 600, color: C.ink2 }}>Sabit:</span>
+                                        <span style={{ fontFamily: MONO, fontSize: 14.5, fontWeight: 700, color: C.ink }}>{liveBase} TL</span>
+                                    </span>
+                                </>
+                            )}
+
+                            <span
+                                className="pt-pill"
+                                style={{
+                                    padding: narrow ? "5px 6px 5px 10px" : "4px 6px 4px 10px",
+                                    fontSize: narrow ? 11.5 : 12,
+                                    whiteSpace: "nowrap",
+                                    flexShrink: 0,
+                                }}
+                            >
+                                Üyelere <b>{liveMember} TL</b>
+                                <span className="pt-pill-tag" style={{ fontSize: 10.5, padding: "2px 6px" }}>-%15</span>
+                            </span>
+                        </button>
+                    )
+                })()}
             </div>
             {/* listing card (bottom sheet on phones) */}
             <a
@@ -3742,7 +4463,8 @@ export default function StaysiftHero(props: HeroProps) {
                     const toName =
                         (uiRef.current.whereInput && uiRef.current.whereInput.value) ||
                         "Elysium Park AVM"
-                    const basePrice = 200
+                    const rawFare = 50 + routeInfo.km * 45
+                    const basePrice = Math.max(250, Math.round(rawFare / 5) * 5)
                     const memberPrice = Math.round(basePrice * 0.85)
                     const CASH_COOLDOWN_KEY = "paytaksi_cash_cooldown_until"
                     const getCashCooldownMin = () => {
@@ -3765,16 +4487,43 @@ export default function StaysiftHero(props: HeroProps) {
                             } catch {}
                         }
                         trackEvent("ride_completed")
-                        fetch(`${getApiUrl()}/api/rides/request`, {
+                        const ridePayload = {
+                            pickupAddress: fromName,
+                            pickupLat: fromCoord[0],
+                            pickupLng: fromCoord[1],
+                            destinationAddress: toName,
+                            customerPhone:
+                                mode === "cash"
+                                    ? cashPhone
+                                    : authUser?.phoneNumber || authUser?.fullName || "Üye Hesabı",
+                            paymentType: mode === "cash" ? "Nakit" : "Cüzdan",
+                        }
+                        const apiUrl = getApiUrl()
+                        fetch(`${apiUrl}/api/rides/request`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                pickupAddress: fromName,
-                                destinationAddress: toName,
-                                customerPhone: mode === "cash" ? cashPhone : "Üye Hesabı",
-                                paymentType: mode === "cash" ? "Nakit" : "Cüzdan",
-                            }),
-                        }).catch(() => {})
+                            body: JSON.stringify(ridePayload),
+                        })
+                            .then((r) => (r.ok ? r.json() : null))
+                            .then((data) => {
+                                // Yerelde Meta token tanımlı değilse (simulated=true), WhatsApp mesajının gerçek telefona gelmesi için canlı API'yi de tetikle
+                                if (data?.whatsapp?.simulated && apiUrl !== "https://api.paytaksi.com.tr") {
+                                    fetch("https://api.paytaksi.com.tr/api/rides/request", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify(ridePayload),
+                                    }).catch(() => {})
+                                }
+                            })
+                            .catch(() => {
+                                if (apiUrl !== "https://api.paytaksi.com.tr") {
+                                    fetch("https://api.paytaksi.com.tr/api/rides/request", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify(ridePayload),
+                                    }).catch(() => {})
+                                }
+                            })
                         setOrderMode(mode)
                         setOrderSuccess(true)
                         setTimeout(() => setCallModalOpen(false), mode === "cash" ? 4500 : 2800)
@@ -3941,6 +4690,201 @@ export default function StaysiftHero(props: HeroProps) {
                                             Numaranız yalnızca şoförünüzle paylaşılır
                                         </div>
                                     </>
+                                ) : callStep === "topup" ? (
+                                    <>
+                                        {/* Geri dön */}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setCallStep("choose")
+                                                setPhoneErr(null)
+                                            }}
+                                            style={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: 5,
+                                                border: 0,
+                                                background: "none",
+                                                padding: 0,
+                                                cursor: "pointer",
+                                                fontSize: 12.5,
+                                                fontWeight: 600,
+                                                color: C.ink2,
+                                                marginBottom: 12,
+                                            }}
+                                        >
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M15 18l-6-6 6-6" />
+                                            </svg>
+                                            Geri dön
+                                        </button>
+
+                                        {/* Başlık */}
+                                        <div style={{ display: "flex", alignItems: "center", gap: 12, paddingRight: 36 }}>
+                                            <span className="pt-ic">
+                                                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                                    <rect x="2" y="5" width="20" height="14" rx="2.5" />
+                                                    <path d="M2 10h20" />
+                                                </svg>
+                                            </span>
+                                            <div style={{ minWidth: 0 }}>
+                                                <div className="pt-eyebrow">
+                                                    <span className="pt-live" />
+                                                    PayTR Güvenli Ödeme · -%15 İndirim
+                                                </div>
+                                                <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-0.03em", marginTop: 2 }}>
+                                                    Bakiye Yükle
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <p style={{ margin: "12px 0 0", fontSize: 13.5, lineHeight: 1.45, color: C.ink2 }}>
+                                            Bu yolculuk için indirimli tutar <b>{memberPrice} TL</b>. Yüklemek istediğiniz bakiye tutarını seçin:
+                                        </p>
+
+                                        {/* Tutar Seçimi */}
+                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginTop: 14 }}>
+                                            {[memberPrice, 250, 500, 1000].map((amt) => {
+                                                const active = walletAmount === amt
+                                                return (
+                                                    <button
+                                                        key={amt}
+                                                        type="button"
+                                                        onClick={() => setWalletAmount(amt)}
+                                                        style={{
+                                                            padding: "11px 6px",
+                                                            borderRadius: 14,
+                                                            border: active ? `1.5px solid ${C.accent}` : "1px solid rgba(16,17,20,0.12)",
+                                                            background: active ? "rgba(58,58,244,0.10)" : "rgba(255,255,255,0.72)",
+                                                            color: active ? C.accent : C.ink,
+                                                            fontFamily: MONO,
+                                                            fontSize: 13.5,
+                                                            fontWeight: 700,
+                                                            cursor: "pointer",
+                                                            transition: "all .18s ease",
+                                                        }}
+                                                    >
+                                                        {amt} TL
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+
+                                        {/* Sözleşme Onay Kutucuğu (PayTR Zorunlu Şartı) */}
+                                        <label
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "flex-start",
+                                                gap: 9,
+                                                marginTop: 14,
+                                                padding: "10px 12px",
+                                                borderRadius: 14,
+                                                background: "rgba(255,255,255,0.68)",
+                                                border: "1px solid rgba(16,17,20,0.09)",
+                                                fontSize: 12,
+                                                lineHeight: 1.45,
+                                                color: C.ink2,
+                                                cursor: "pointer",
+                                            }}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={topupAgreed}
+                                                onChange={(e) => {
+                                                    setTopupAgreed(e.target.checked)
+                                                    if (e.target.checked) setPhoneErr(null)
+                                                }}
+                                                style={{ marginTop: 2, accentColor: C.accent, width: 16, height: 16, flexShrink: 0, cursor: "pointer" }}
+                                            />
+                                            <span>
+                                                <a href="/mesafeli-satis-sozlesmesi" target="_blank" rel="noreferrer" style={{ color: C.accent, fontWeight: 600, textDecoration: "none" }}>
+                                                    Ön Bilgilendirme Formu & Mesafeli Satış Sözleşmesi
+                                                </a>{" "}
+                                                ile{" "}
+                                                <a href="/iptal-iade" target="_blank" rel="noreferrer" style={{ color: C.accent, fontWeight: 600, textDecoration: "none" }}>
+                                                    İptal ve İade Politikası
+                                                </a>
+                                                'nı okudum, onaylıyorum.
+                                            </span>
+                                        </label>
+
+                                        {phoneErr && (
+                                            <div style={{ marginTop: 10, fontSize: 12.5, fontWeight: 500, color: C.accent, background: "rgba(58,58,244,0.08)", padding: "9px 12px", borderRadius: 12 }}>
+                                                {phoneErr}
+                                            </div>
+                                        )}
+
+                                        <div style={{ marginTop: 14 }}>
+                                            <button
+                                                type="button"
+                                                className="pt-primary"
+                                                onClick={() => {
+                                                    if (!topupAgreed) {
+                                                        setPhoneErr("Devam etmek için lütfen Mesafeli Satış Sözleşmesi ve İptal/İade Koşulları kutucuğunu onaylayın.")
+                                                        return
+                                                    }
+                                                    trackEvent("paytr_topup_click")
+                                                    setPhoneErr("PayTR ödeme ekranı entegrasyonu hazır — mağaza bilgileri tanımlandığında ödeme sayfasına yönlendirilecek.")
+                                                }}
+                                            >
+                                                <span style={{ flex: 1, minWidth: 0 }}>
+                                                    <span style={{ display: "block", fontSize: 15, fontWeight: 700, letterSpacing: "-0.02em" }}>
+                                                        PayTR ile Güvenli Yükle
+                                                    </span>
+                                                    <span style={{ display: "block", fontSize: 12, opacity: 0.82, marginTop: 2 }}>
+                                                        3D Secure · Banka & Kredi Kartı
+                                                    </span>
+                                                </span>
+                                                <span className="pt-badge">{walletAmount} TL</span>
+                                            </button>
+                                        </div>
+                                        <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "center", gap: 6 }}>
+                                            {/* PayTR Logo */}
+                                            <span style={{ height: 26, padding: "0 8px", borderRadius: 7, border: "1px solid rgba(16,17,20,0.1)", background: "#fff", display: "inline-flex", alignItems: "center" }}>
+                                                <svg width="46" height="14" viewBox="0 0 108 32" aria-label="PayTR">
+                                                    <rect x="0" y="4" width="24" height="24" rx="6" fill="#0B5CAD" />
+                                                    <path d="M7 16.5l3.5 3.5 6.5-7" fill="none" stroke="#fff" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+                                                    <text x="30" y="23" fontFamily="'Inter Tight', 'Inter', sans-serif" fontWeight="800" fontSize="21" letterSpacing="-0.6" fill="#101114">
+                                                        Pay<tspan fill="#0B5CAD">TR</tspan>
+                                                    </text>
+                                                </svg>
+                                            </span>
+                                            {/* VISA Logo */}
+                                            <span style={{ height: 26, padding: "0 8px", borderRadius: 7, border: "1px solid rgba(16,17,20,0.1)", background: "#fff", display: "inline-flex", alignItems: "center" }}>
+                                                <svg width="36" height="12" viewBox="0 0 84 28" aria-label="VISA">
+                                                    <text x="2" y="22" fontFamily="'Inter Tight', 'Arial Black', sans-serif" fontWeight="900" fontStyle="italic" fontSize="25" letterSpacing="-1" fill="#1A1F71">
+                                                        VISA
+                                                    </text>
+                                                    <path d="M4 4h11l3 5" fill="none" stroke="#F7B600" strokeWidth="2.6" strokeLinecap="round" />
+                                                </svg>
+                                            </span>
+                                            {/* Mastercard Logo */}
+                                            <span style={{ height: 26, padding: "0 8px", borderRadius: 7, border: "1px solid rgba(16,17,20,0.1)", background: "#fff", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                                <svg width="24" height="14" viewBox="0 0 36 22" aria-label="Mastercard">
+                                                    <circle cx="13" cy="11" r="9" fill="#EB001B" />
+                                                    <circle cx="23" cy="11" r="9" fill="#F79E1B" fillOpacity="0.9" />
+                                                </svg>
+                                            </span>
+                                            {/* TROY Logo */}
+                                            <span style={{ height: 26, padding: "0 8px", borderRadius: 7, border: "1px solid rgba(16,17,20,0.1)", background: "#fff", display: "inline-flex", alignItems: "center" }}>
+                                                <svg width="40" height="14" viewBox="0 0 92 32" aria-label="TROY">
+                                                    <text x="2" y="23" fontFamily="'Inter Tight', 'Inter', sans-serif" fontWeight="900" fontSize="23" letterSpacing="-0.5" fill="#003865">
+                                                        troy
+                                                    </text>
+                                                    <circle cx="67" cy="15" r="7.5" fill="#00A3E0" />
+                                                    <path d="M64 15l2.2 2.2 4.5-4.5" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                                                </svg>
+                                            </span>
+                                            {/* 256-Bit SSL */}
+                                            <span style={{ height: 26, padding: "0 8px", borderRadius: 7, border: "1px solid rgba(16,17,20,0.1)", background: "#fff", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 700, color: "#0E8A5F" }}>
+                                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0E8A5F" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <rect x="4" y="11" width="16" height="10" rx="2" />
+                                                    <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+                                                </svg>
+                                                256-Bit SSL
+                                            </span>
+                                        </div>
+                                    </>
                                 ) : (
                                     <>
                                         {/* Başlık */}
@@ -3989,7 +4933,9 @@ export default function StaysiftHero(props: HeroProps) {
                                             style={{ marginTop: 10, padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}
                                         >
                                             <div>
-                                                <div className="pt-label">Sabit ücret</div>
+                                                <div className="pt-label">
+                                                    Sabit ücret · {routeInfo.km} km (~{routeInfo.min} dk)
+                                                </div>
                                                 <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 600, letterSpacing: "-0.03em", marginTop: 2 }}>
                                                     {basePrice} TL
                                                 </div>
@@ -4007,20 +4953,22 @@ export default function StaysiftHero(props: HeroProps) {
                                                 className="pt-primary"
                                                 onClick={() => {
                                                     trackEvent("wallet_click")
-                                                    const hasToken = Boolean(localStorage.getItem("paytaksi_jwt_token"))
+                                                    const hasToken = Boolean(authUser || localStorage.getItem("paytaksi_jwt_token"))
                                                     if (!hasToken) {
                                                         window.location.href = "/giris"
                                                         return
                                                     }
-                                                    finish("member")
+                                                    setWalletAmount(memberPrice)
+                                                    setPhoneErr(null)
+                                                    setCallStep("topup")
                                                 }}
                                             >
                                                 <span style={{ flex: 1, minWidth: 0 }}>
                                                     <span style={{ display: "block", fontSize: 15, fontWeight: 700, letterSpacing: "-0.02em" }}>
-                                                        Giriş yap, %15 indirimle çağır
+                                                        {authUser ? "Bakiye yükle, %15 indirim kazan" : "Giriş yap, %15 indirimle çağır"}
                                                     </span>
                                                     <span style={{ display: "block", fontSize: 12, opacity: 0.82, marginTop: 2 }}>
-                                                        SMS kodu ile saniyeler içinde giriş
+                                                        {authUser ? "PayTR ile güvenli bakiye yükle ve hemen çağır" : "Google veya e-posta ile saniyeler içinde giriş"}
                                                     </span>
                                                 </span>
                                                 <span className="pt-badge">{memberPrice} TL</span>
@@ -4028,23 +4976,74 @@ export default function StaysiftHero(props: HeroProps) {
                                             <div className="pt-divider">veya</div>
                                             <button
                                                 type="button"
-                                                className="pt-ghost"
+                                                className="pt-tile pt-ghost"
                                                 disabled={cooldownMin > 0}
                                                 onClick={() => {
                                                     if (cooldownMin > 0) return
                                                     trackEvent("cash_click")
+                                                    if (authUser?.phoneNumber && !cashPhone) {
+                                                        setCashPhone(authUser.phoneNumber)
+                                                    }
                                                     setCallStep("cash-phone")
                                                     setPhoneErr(null)
                                                 }}
-                                                style={
-                                                    cooldownMin > 0
+                                                style={{
+                                                    width: "100%",
+                                                    padding: "12px 14px",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "space-between",
+                                                    gap: 12,
+                                                    textAlign: "left",
+                                                    background: "rgba(255, 255, 255, 0.65)",
+                                                    border: "1px solid rgba(255, 255, 255, 0.92)",
+                                                    boxShadow:
+                                                        "inset 0 1px 0 rgba(255,255,255,0.95), 0 1px 2px rgba(16,17,20,0.05), 0 8px 20px -14px rgba(16,17,20,0.22)",
+                                                    ...(cooldownMin > 0
                                                         ? { opacity: 0.48, cursor: "not-allowed" }
-                                                        : undefined
-                                                }
+                                                        : {}),
+                                                }}
                                             >
-                                                <span>Nakitle devam et</span>
-                                                <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.ink2, fontWeight: 500 }}>
-                                                    {cooldownMin > 0 ? `${cooldownMin} dk bekle` : `${basePrice} TL · araçta öde`}
+                                                <div style={{ display: "flex", alignItems: "center", gap: 11, minWidth: 0 }}>
+                                                    <span
+                                                        style={{
+                                                            width: 36,
+                                                            height: 36,
+                                                            borderRadius: 12,
+                                                            background: "rgba(22, 163, 74, 0.12)",
+                                                            color: "#15803d",
+                                                            display: "grid",
+                                                            placeItems: "center",
+                                                            flex: "none",
+                                                        }}
+                                                        aria-hidden="true"
+                                                    >
+                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                            <rect x="2" y="6" width="20" height="12" rx="2.5" />
+                                                            <circle cx="12" cy="12" r="2.6" />
+                                                            <path d="M6 12h.01M18 12h.01" />
+                                                        </svg>
+                                                    </span>
+                                                    <div style={{ minWidth: 0 }}>
+                                                        <div className="pt-label">Araçta nakit öde</div>
+                                                        <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.02em", color: C.ink, marginTop: 1 }}>
+                                                            Nakitle devam et
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <span
+                                                    className="pt-pill"
+                                                    style={{
+                                                        background: "rgba(22, 163, 74, 0.09)",
+                                                        borderColor: "rgba(22, 163, 74, 0.22)",
+                                                    }}
+                                                >
+                                                    <b style={{ color: "#15803d" }}>
+                                                        {cooldownMin > 0 ? `${cooldownMin} dk` : `${basePrice} TL`}
+                                                    </b>
+                                                    <span className="pt-pill-tag" style={{ background: "#15803d" }}>
+                                                        {cooldownMin > 0 ? "Bekle" : "Nakit"}
+                                                    </span>
                                                 </span>
                                             </button>
                                             {cooldownMin > 0 && (
@@ -4059,15 +5058,593 @@ export default function StaysiftHero(props: HeroProps) {
                                                         padding: "9px 12px",
                                                     }}
                                                 >
-                                                    Giriş yapmadan 1 saat içinde tekrar taksi çağıramazsınız ({cooldownMin} dk kaldı). Hemen çağırmak için üstten <b>Giriş yap</b> seçeneğini kullanabilirsiniz.
+                                                    {authUser ? (
+                                                        <>
+                                                            Nakit ile 1 saat içinde tekrar taksi çağıramazsınız ({cooldownMin} dk kaldı). Beklemeden hemen çağırmak için üstten <b>Bakiye yükle</b> seçeneğini kullanabilirsiniz.
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            Nakit ile 1 saat içinde tekrar taksi çağıramazsınız ({cooldownMin} dk kaldı). Hemen çağırmak için üstten <b>Giriş yap</b> seçeneğini kullanıp bakiye yükleyebilirsiniz.
+                                                        </>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
-                                        <div style={{ marginTop: 14, textAlign: "center", fontSize: 11.5, color: "#8E9099" }}>
+                                        <div style={{ marginTop: 14, textAlign: "center", fontSize: 12, fontWeight: 500, color: C.ink }}>
                                             Sürpriz ücret yok · Sabit tarife · Ücretsiz iptal
                                         </div>
                                     </>
                                 )}
+                            </div>
+                        </div>
+                    )
+                })()}
+
+            {/* Tarifeler modalı */}
+            {tariffModalOpen && (
+                <div
+                    className="pt-overlay"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Elazığ Taksi Tarifeleri"
+                    onClick={() => setTariffModalOpen(false)}
+                >
+                    <div className="pt-card" onClick={(e) => e.stopPropagation()}>
+                        <span className="pt-glow" aria-hidden="true" />
+                        <button
+                            type="button"
+                            className="pt-close"
+                            aria-label="Kapat"
+                            onClick={() => setTariffModalOpen(false)}
+                        >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#101114" strokeWidth="2.4" strokeLinecap="round">
+                                <path d="M18 6L6 18M6 6l12 12" />
+                            </svg>
+                        </button>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, paddingRight: 40 }}>
+                            <span className="pt-ic">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="2" y="6" width="20" height="12" rx="2.5" />
+                                    <circle cx="12" cy="12" r="2.6" />
+                                    <path d="M6 12h.01M18 12h.01" />
+                                </svg>
+                            </span>
+                            <div style={{ minWidth: 0 }}>
+                                <div className="pt-eyebrow">
+                                    <span className="pt-live" />
+                                    Elazığ · Güncel Tarife
+                                </div>
+                                <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.03em", marginTop: 2 }}>
+                                    Taksi Tarifeleri
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 18 }}>
+                            <div className="pt-tile" style={{ padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                                <div>
+                                    <div className="pt-label">İndi - Bindi</div>
+                                    <div style={{ fontSize: 13, color: C.ink2, marginTop: 2 }}>Kısa mesafe taban ücreti</div>
+                                </div>
+                                <span className="pt-pill">
+                                    <b>250 TL</b>
+                                </span>
+                            </div>
+
+                            <div className="pt-tile" style={{ padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                                <div>
+                                    <div className="pt-label">Taksimetre Açılış (Sabit Ücret)</div>
+                                    <div style={{ fontSize: 13, color: C.ink2, marginTop: 2 }}>Elazığ başlangıç tarifesi</div>
+                                </div>
+                                <span className="pt-pill">
+                                    <b>50 TL</b>
+                                </span>
+                            </div>
+
+                            <div className="pt-tile" style={{ padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                                <div>
+                                    <div className="pt-label">Kilometre Başı Ücret</div>
+                                    <div style={{ fontSize: 13, color: C.ink2, marginTop: 2 }}>Her 1 km için</div>
+                                </div>
+                                <span className="pt-pill">
+                                    <b>45 TL / km</b>
+                                </span>
+                            </div>
+
+                            <div className="pt-tile" style={{ padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                                <div>
+                                    <div className="pt-label">Bekleme Ücreti</div>
+                                    <div style={{ fontSize: 13, color: C.ink2, marginTop: 2 }}>Dakika başı bekleme</div>
+                                </div>
+                                <span className="pt-pill">
+                                    <b>7,50 TL / dk</b>
+                                </span>
+                            </div>
+                        </div>
+
+                        <div style={{ marginTop: 14, textAlign: "center", fontSize: 12, fontWeight: 500, color: C.ink }}>
+                            Üyelere ilk yolculuğa özel %15 indirim · Sürpriz ücret yok
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Bizimle Çalışın (Taksici Başvuru) modalı */}
+            {partnerModalOpen && (
+                <div
+                    className="pt-overlay"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Bizimle Çalışın"
+                    onClick={() => setPartnerModalOpen(false)}
+                >
+                    <div className="pt-card" onClick={(e) => e.stopPropagation()}>
+                        <span className="pt-glow" aria-hidden="true" />
+                        <button
+                            type="button"
+                            className="pt-close"
+                            aria-label="Kapat"
+                            onClick={() => setPartnerModalOpen(false)}
+                        >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#101114" strokeWidth="2.4" strokeLinecap="round">
+                                <path d="M18 6L6 18M6 6l12 12" />
+                            </svg>
+                        </button>
+
+                        {partnerSent ? (
+                            <div style={{ textAlign: "center", padding: "18px 6px 6px" }}>
+                                <span className="pt-ic pt-ic-ok" style={{ margin: "0 auto 14px" }}>
+                                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M5 12.5l4.5 4.5L19 7.5" />
+                                    </svg>
+                                </span>
+                                <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.03em" }}>
+                                    Başvurunuz alındı!
+                                </div>
+                                <p style={{ margin: "8px auto 0", maxWidth: 310, fontSize: 13.5, lineHeight: 1.5, color: C.ink2 }}>
+                                    Ekibimiz en kısa sürede <b>{partnerForm.phone}</b> numarasından sizinle iletişime geçecektir.
+                                </p>
+                                <button
+                                    type="button"
+                                    className="pt-primary"
+                                    onClick={() => setPartnerModalOpen(false)}
+                                    style={{ marginTop: 18, justifyContent: "center", textAlign: "center" }}
+                                >
+                                    <span style={{ fontSize: 15, fontWeight: 700 }}>Tamam</span>
+                                </button>
+                            </div>
+                        ) : (
+                            <>
+                                <div style={{ display: "flex", alignItems: "center", gap: 12, paddingRight: 40 }}>
+                                    <span className="pt-ic">
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M5 16.5V12l1.8-4.6A2 2 0 0 1 8.7 6h6.6a2 2 0 0 1 1.9 1.4L19 12v4.5" />
+                                            <path d="M4 12h16v4.5H4zM9.5 6V4.5h5V6" />
+                                            <circle cx="7.5" cy="16.5" r="1.6" />
+                                            <circle cx="16.5" cy="16.5" r="1.6" />
+                                        </svg>
+                                    </span>
+                                    <div style={{ minWidth: 0 }}>
+                                        <div className="pt-eyebrow">
+                                            <span className="pt-live" />
+                                            Elazığ · Sürücü Başvurusu
+                                        </div>
+                                        <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.03em", marginTop: 2 }}>
+                                            Bizimle Çalışın
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <p style={{ margin: "12px 0 0", fontSize: 13.5, lineHeight: 1.45, color: C.ink2 }}>
+                                    PayTaksi ağına katılın, Elazığ genelinde anlık yolcu çağrılarıyla kazancınızı artırın.
+                                </p>
+
+                                <form
+                                    onSubmit={(e) => {
+                                        e.preventDefault()
+                                        trackEvent("driver_apply")
+                                        setPartnerSent(true)
+                                    }}
+                                    style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}
+                                >
+                                    <label className="pt-tile pt-field">
+                                        <span style={{ flex: 1, minWidth: 0 }}>
+                                            <span className="pt-label" style={{ display: "block" }}>Ad Soyad</span>
+                                            <input
+                                                className="pt-input"
+                                                required
+                                                value={partnerForm.name}
+                                                onChange={(e) => setPartnerForm({ ...partnerForm, name: e.target.value })}
+                                                placeholder="Örn: Ahmet Yılmaz"
+                                            />
+                                        </span>
+                                    </label>
+                                    <label className="pt-tile pt-field">
+                                        <span style={{ flex: 1, minWidth: 0 }}>
+                                            <span className="pt-label" style={{ display: "block" }}>Telefon Numarası</span>
+                                            <input
+                                                className="pt-input"
+                                                type="tel"
+                                                inputMode="tel"
+                                                required
+                                                value={partnerForm.phone}
+                                                onChange={(e) => setPartnerForm({ ...partnerForm, phone: e.target.value })}
+                                                placeholder="05XX XXX XX XX"
+                                            />
+                                        </span>
+                                    </label>
+                                    <label className="pt-tile pt-field">
+                                        <span style={{ flex: 1, minWidth: 0 }}>
+                                            <span className="pt-label" style={{ display: "block" }}>Taksi Plakası</span>
+                                            <input
+                                                className="pt-input"
+                                                required
+                                                value={partnerForm.plate}
+                                                onChange={(e) => setPartnerForm({ ...partnerForm, plate: e.target.value.toUpperCase() })}
+                                                placeholder="23 T 0000"
+                                            />
+                                        </span>
+                                    </label>
+                                    <button type="submit" className="pt-primary" style={{ marginTop: 6 }}>
+                                        <span style={{ flex: 1, minWidth: 0 }}>
+                                            <span style={{ display: "block", fontSize: 15, fontWeight: 700, letterSpacing: "-0.02em" }}>
+                                                Başvuru Gönder
+                                            </span>
+                                            <span style={{ display: "block", fontSize: 12, opacity: 0.82, marginTop: 2 }}>
+                                                Aynı gün içinde dönüş yapılır
+                                            </span>
+                                        </span>
+                                        <span className="pt-badge">23 T</span>
+                                    </button>
+                                </form>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Haritadan Alınış ve Bırakılış Seçme Modalı */}
+            {mapPickerOpen &&
+                (() => {
+                    const liveBase = Math.max(250, Math.round((50 + routeInfo.km * 45) / 5) * 5)
+                    const liveMember = Math.round(liveBase * 0.85)
+                    return (
+                        <div
+                            className="pt-overlay"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-label="Haritadan Konum Seç"
+                            style={narrow ? { padding: 0, alignItems: "stretch" } : undefined}
+                            onClick={() => setMapPickerOpen(false)}
+                        >
+                            <div
+                                className="pt-card pt-map-card"
+                                style={
+                                    narrow
+                                        ? {
+                                              width: "100vw",
+                                              maxWidth: "100vw",
+                                              height: "100dvh",
+                                              borderRadius: 0,
+                                              padding: "16px 14px 16px",
+                                              display: "flex",
+                                              flexDirection: "column",
+                                              background: "rgba(248, 247, 244, 0.96)",
+                                              backdropFilter: "none",
+                                              WebkitBackdropFilter: "none",
+                                          }
+                                        : { maxWidth: 540, padding: 22 }
+                                }
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {!narrow && <span className="pt-glow" aria-hidden="true" />}
+                                <button
+                                    type="button"
+                                    className="pt-close"
+                                    aria-label="Kapat"
+                                    style={narrow ? { top: 14, right: 14, width: 38, height: 38 } : undefined}
+                                    onClick={() => setMapPickerOpen(false)}
+                                >
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#101114" strokeWidth="2.4" strokeLinecap="round">
+                                        <path d="M18 6L6 18M6 6l12 12" />
+                                    </svg>
+                                </button>
+
+                                <div style={{ display: "flex", alignItems: "center", gap: 12, paddingRight: 44, flexShrink: 0 }}>
+                                    <span className="pt-ic" style={{ width: 46, height: 46 }}>
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M12 21s-7-5.6-7-11a7 7 0 1 1 14 0c0 5.4-7 11-7 11z" />
+                                            <circle cx="12" cy="10" r="2.5" />
+                                        </svg>
+                                    </span>
+                                    <div style={{ minWidth: 0 }}>
+                                        <div className="pt-eyebrow" style={{ fontSize: 11.5 }}>
+                                            <span className="pt-live" />
+                                            Haritaya dokunun veya iğneyi sürükleyin
+                                        </div>
+                                        <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.03em", marginTop: 2 }}>
+                                            Haritadan Konum Seç
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Alınış / Bırakılış Sekmeleri (Daha büyük ve rahat dokunma alanı) */}
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 14, flexShrink: 0 }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setMapPickerField("from")
+                                            leafletRef.current?.map?.panTo(fromCoord)
+                                        }}
+                                        style={{
+                                            padding: "13px 14px",
+                                            borderRadius: 18,
+                                            textAlign: "left",
+                                            cursor: "pointer",
+                                            fontFamily: SANS,
+                                            background: mapPickerField === "from" ? "rgba(58,58,244,0.12)" : "rgba(255,255,255,0.85)",
+                                            border: mapPickerField === "from" ? `2px solid ${C.accent}` : "1px solid rgba(16,17,20,0.12)",
+                                            boxShadow: "inset 0 1px 0 #fff",
+                                        }}
+                                    >
+                                        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                                            <span style={{ width: 9, height: 9, borderRadius: 99, background: C.accent, flexShrink: 0 }} />
+                                            <span className="pt-label" style={{ fontSize: 11.5, color: mapPickerField === "from" ? C.accent : undefined }}>
+                                                1. Alınış Yeri
+                                            </span>
+                                        </div>
+                                        <div style={{ fontSize: 14.5, fontWeight: 700, color: mapFromLabel ? C.ink : C.ink2, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                            {mapFromLabel || "Haritadan seçin"}
+                                        </div>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setMapPickerField("to")
+                                            leafletRef.current?.map?.panTo(toCoord)
+                                        }}
+                                        style={{
+                                            padding: "13px 14px",
+                                            borderRadius: 18,
+                                            textAlign: "left",
+                                            cursor: "pointer",
+                                            fontFamily: SANS,
+                                            background: mapPickerField === "to" ? "rgba(16,17,20,0.10)" : "rgba(255,255,255,0.85)",
+                                            border: mapPickerField === "to" ? `2px solid ${C.ink}` : "1px solid rgba(16,17,20,0.12)",
+                                            boxShadow: "inset 0 1px 0 #fff",
+                                        }}
+                                    >
+                                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.ink} strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                                                <path d="M12 21s-7-5.6-7-11a7 7 0 1 1 14 0c0 5.4-7 11-7 11z" />
+                                                <circle cx="12" cy="10" r="2.5" />
+                                            </svg>
+                                            <span className="pt-label" style={{ fontSize: 11.5, color: mapPickerField === "to" ? C.ink : undefined }}>
+                                                2. Varış Yeri
+                                            </span>
+                                        </div>
+                                        <div style={{ fontSize: 14.5, fontWeight: 700, color: mapToLabel ? C.ink : C.ink2, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                            {mapToLabel || "Haritadan seçin"}
+                                        </div>
+                                    </button>
+                                </div>
+
+                                {/* İnteraktif Elazığ Haritası (Telefonda tüm orta alanı doldurur) */}
+                                <div
+                                    style={{
+                                        marginTop: 12,
+                                        flex: narrow ? 1 : "none",
+                                        height: narrow ? "auto" : 290,
+                                        minHeight: narrow ? 240 : 290,
+                                        borderRadius: 20,
+                                        overflow: "hidden",
+                                        border: "1px solid rgba(16,17,20,0.12)",
+                                        boxShadow: "0 10px 26px -14px rgba(16,17,24,0.22)",
+                                        position: "relative",
+                                    }}
+                                >
+                                    <div ref={mapDivRef} style={{ width: "100%", height: "100%" }} />
+
+                                    {/* Özel Minimalist Cam Harita Kontrolleri (+ / - / GPS) */}
+                                    <div
+                                        style={{
+                                            position: "absolute",
+                                            right: 12,
+                                            bottom: 12,
+                                            zIndex: 10,
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            gap: 8,
+                                        }}
+                                    >
+                                        <button
+                                            type="button"
+                                            aria-label="Konumuma odaklan"
+                                            title="Konumuma odaklan"
+                                            onClick={() => leafletRef.current?.map?.locateMe?.()}
+                                            style={{
+                                                width: 38,
+                                                height: 38,
+                                                borderRadius: 13,
+                                                border: "1px solid rgba(255,255,255,0.92)",
+                                                background: "rgba(255,255,255,0.88)",
+                                                backdropFilter: "blur(14px)",
+                                                WebkitBackdropFilter: "blur(14px)",
+                                                boxShadow: "0 8px 20px -6px rgba(16,17,24,0.28), inset 0 1px 0 #fff",
+                                                display: "grid",
+                                                placeItems: "center",
+                                                cursor: "pointer",
+                                                color: C.accent,
+                                                padding: 0,
+                                            }}
+                                        >
+                                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                                                <circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none" />
+                                                <circle cx="12" cy="12" r="8" />
+                                                <path d="M12 2v2M12 20v2M2 12h2M20 12h2" />
+                                            </svg>
+                                        </button>
+
+                                        <div
+                                            style={{
+                                                display: "flex",
+                                                flexDirection: "column",
+                                                borderRadius: 14,
+                                                overflow: "hidden",
+                                                border: "1px solid rgba(255,255,255,0.92)",
+                                                background: "rgba(255,255,255,0.88)",
+                                                backdropFilter: "blur(14px)",
+                                                WebkitBackdropFilter: "blur(14px)",
+                                                boxShadow: "0 8px 20px -6px rgba(16,17,24,0.28), inset 0 1px 0 #fff",
+                                            }}
+                                        >
+                                            <button
+                                                type="button"
+                                                aria-label="Yakınlaştır"
+                                                onClick={() => leafletRef.current?.map?.zoomIn?.()}
+                                                style={{
+                                                    width: 38,
+                                                    height: 36,
+                                                    border: 0,
+                                                    borderBottom: "1px solid rgba(16,17,20,0.08)",
+                                                    background: "transparent",
+                                                    display: "grid",
+                                                    placeItems: "center",
+                                                    cursor: "pointer",
+                                                    color: C.ink,
+                                                    padding: 0,
+                                                }}
+                                            >
+                                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round">
+                                                    <path d="M12 5v14M5 12h14" />
+                                                </svg>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                aria-label="Uzaklaştır"
+                                                onClick={() => leafletRef.current?.map?.zoomOut?.()}
+                                                style={{
+                                                    width: 38,
+                                                    height: 36,
+                                                    border: 0,
+                                                    background: "transparent",
+                                                    display: "grid",
+                                                    placeItems: "center",
+                                                    cursor: "pointer",
+                                                    color: C.ink,
+                                                    padding: 0,
+                                                }}
+                                            >
+                                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round">
+                                                    <path d="M5 12h14" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Mesafe ve Ücret Özeti (Sadece hem Alınış hem Varış seçildiğinde görünür) */}
+                                {hasFromPicked && hasToPicked && routeInfo.km > 0 && (
+                                    <div
+                                        className="pt-tile"
+                                        style={{
+                                            marginTop: 12,
+                                            padding: "13px 16px",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "space-between",
+                                            gap: 12,
+                                            background: "rgba(255,255,255,0.9)",
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        <div>
+                                            <div className="pt-label" style={{ fontSize: 11.5 }}>
+                                                {routeInfo.km} km · ~{routeInfo.min} dk sürüş
+                                            </div>
+                                            <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 700, color: C.ink, marginTop: 2 }}>
+                                                {liveBase} TL
+                                            </div>
+                                        </div>
+                                        <span className="pt-pill" style={{ padding: "8px 10px 8px 13px", fontSize: 13.5 }}>
+                                            Üyelere <b>{liveMember} TL</b>
+                                            <span className="pt-pill-tag" style={{ fontSize: 11.5, padding: "3px 8px" }}>-%15</span>
+                                        </span>
+                                    </div>
+                                )}
+
+                                {/* Onay Butonu (Daha büyük ve belirgin) */}
+                                <div style={{ marginTop: 12, flexShrink: 0 }}>
+                                    {gpsConfirmMode ? (
+                                        <button
+                                            type="button"
+                                            className="pt-primary"
+                                            style={{ padding: "16px 18px" }}
+                                            onClick={() => {
+                                                const finalLabel =
+                                                    mapFromLabel && !/^\d+\.\d+/.test(mapFromLabel)
+                                                        ? mapFromLabel
+                                                        : "Mevcut Konum"
+                                                if (uiRef.current.fromInput) {
+                                                    uiRef.current.fromInput.value = finalLabel
+                                                }
+                                                setMapFromLabel(finalLabel)
+                                                fromTouchedRef.current = true
+                                                setHasFromPicked(true)
+                                                setSearchWarn(null)
+                                                setGpsConfirmMode(false)
+                                                setMapPickerOpen(false)
+                                                setTimeout(() => goFromRegion(3, finalLabel), 120)
+                                            }}
+                                        >
+                                            <span style={{ flex: 1 }}>
+                                                <span style={{ display: "block", fontSize: 16.5, fontWeight: 700 }}>
+                                                    Mevcut Konumu Onayla
+                                                </span>
+                                                <span style={{ display: "block", fontSize: 12.5, opacity: 0.85, marginTop: 2 }}>
+                                                    {mapFromLabel || "Haritadaki noktanız onaylanacak"}
+                                                </span>
+                                            </span>
+                                            <span className="pt-badge" style={{ fontSize: 14, padding: "9px 12px" }}>GPS</span>
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            className="pt-primary"
+                                            style={{ padding: "16px 18px" }}
+                                            onClick={() => {
+                                                if (uiRef.current.fromInput && mapFromLabel) {
+                                                    uiRef.current.fromInput.value = mapFromLabel
+                                                    fromTouchedRef.current = true
+                                                    setHasFromPicked(true)
+                                                }
+                                                if (uiRef.current.whereInput && mapToLabel) {
+                                                    uiRef.current.whereInput.value = mapToLabel
+                                                    whereTouchedRef.current = true
+                                                    setHasToPicked(true)
+                                                }
+                                                setSearchWarn(null)
+                                                setMapPickerOpen(false)
+                                            }}
+                                        >
+                                            <span style={{ flex: 1 }}>
+                                                <span style={{ display: "block", fontSize: 16.5, fontWeight: 700 }}>
+                                                    Konumları Onayla
+                                                </span>
+                                                <span style={{ display: "block", fontSize: 12.5, opacity: 0.85, marginTop: 2 }}>
+                                                    {mapFromLabel && mapToLabel
+                                                        ? `${mapFromLabel} → ${mapToLabel}`
+                                                        : mapFromLabel || mapToLabel || "Haritadan nokta seçin"}
+                                                </span>
+                                            </span>
+                                            {hasFromPicked && hasToPicked && routeInfo.km > 0 && (
+                                                <span className="pt-badge" style={{ fontSize: 14, padding: "9px 12px" }}>{liveMember} TL</span>
+                                            )}
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )

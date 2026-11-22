@@ -143,7 +143,7 @@ const PT_CSS = `
   .pt-badge { flex: none; font-family: ${MONO}; font-size: 13px; font-weight: 600; padding: 8px 10px; border-radius: 12px;
     background: rgba(255,255,255,0.18); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3); }
   .pt-ghost {
-    width: 100%; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    width: 100%; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 10px;
     padding: 13px 16px; border-radius: 16px; font-family: ${SANS}; font-size: 14px; font-weight: 600; color: ${C.ink};
     background: rgba(255,255,255,0.42); border: 1px solid rgba(255,255,255,0.85);
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.95), 0 1px 2px rgba(16,17,20,0.05);
@@ -193,6 +193,9 @@ export default function AuthPage({
     const [err, setErr] = useState<string | null>(null)
     const [okMsg, setOkMsg] = useState<string | null>(null)
     const [me, setMe] = useState<AuthUser | null>(null)
+    const [welcomeOpen, setWelcomeOpen] = useState(false)
+    const [termsAgreed, setTermsAgreed] = useState(false)
+    const [docModal, setDocModal] = useState<"terms" | "kvkk" | null>(null)
 
     const loadMe = async () => {
         const token = localStorage.getItem(TOKEN_KEY)
@@ -223,6 +226,10 @@ export default function AuthPage({
         e.preventDefault()
         setErr(null)
         setOkMsg(null)
+        if (mode === "register" && !requireRole && !termsAgreed) {
+            setErr("Hesap oluşturmak için lütfen Kullanım Koşulları ve KVKK Aydınlatma Metni kutucuğunu onaylayın.")
+            return
+        }
         setBusy(true)
         try {
             const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register"
@@ -263,10 +270,102 @@ export default function AuthPage({
         }
     }
 
+    const handleGoogleAuth = async () => {
+        setErr(null)
+        setOkMsg(null)
+        if (mode === "register" && !requireRole && !termsAgreed) {
+            setErr("Google ile kayıt olmak için lütfen önce Kullanım Koşulları ve KVKK Aydınlatma Metni kutucuğunu onaylayın.")
+            return
+        }
+        setBusy(true)
+        try {
+            let clientId = ((import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || "").trim()
+            if (!clientId) {
+                const cfgRes = await fetch(`${getApiBase()}/api/auth/google-config`).catch(() => null)
+                if (cfgRes && cfgRes.ok) {
+                    const cfg = await cfgRes.json().catch(() => ({}))
+                    clientId = (cfg.clientId || "").trim()
+                }
+            }
+            if (!clientId) {
+                clientId = "962400518298-5gbgqlvgm803eun9dg2l14bbvhq1irhf.apps.googleusercontent.com"
+            }
+
+            const g = (window as any).google
+            if (!g?.accounts?.oauth2) {
+                setErr("Google giriş servisi yüklenemedi. Sayfayı yenileyip tekrar deneyin.")
+                setBusy(false)
+                return
+            }
+
+            const tokenClient = g.accounts.oauth2.initTokenClient({
+                client_id: clientId,
+                scope: "openid email profile",
+                callback: async (resp: any) => {
+                    if (resp?.error || !resp?.access_token) {
+                        setErr("Google ile giriş iptal edildi veya başarısız oldu.")
+                        setBusy(false)
+                        return
+                    }
+                    try {
+                        const res = await fetch(`${getApiBase()}/api/auth/google`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                accessToken: resp.access_token,
+                                role: mode === "register" ? role : "Yolcu",
+                            }),
+                        })
+                        const data = await res.json().catch(() => ({}))
+                        if (!res.ok) {
+                            setErr(data.error || "Google ile giriş başarısız.")
+                            return
+                        }
+                        localStorage.setItem(TOKEN_KEY, data.token)
+                        const u: AuthUser = data.user
+                        setMe(u)
+                        setFullName(u.fullName || "")
+                        setPhone(u.phoneNumber || "")
+                        if (requireRole && !u.roles.includes(requireRole)) {
+                            setErr(`Bu alan için '${requireRole}' yetkisi gerekiyor.`)
+                            return
+                        }
+                        if (onAuthenticated) {
+                            onAuthenticated(u)
+                            return
+                        }
+                        setOkMsg("Google ile giriş başarılı!")
+                    } catch {
+                        setErr("Sunucuya bağlanılamadı (.NET API çalışıyor mu?).")
+                    } finally {
+                        setBusy(false)
+                    }
+                },
+                error_callback: () => {
+                    setBusy(false)
+                },
+            })
+            tokenClient.requestAccessToken({ prompt: "select_account" })
+        } catch {
+            setErr("Google ile giriş başlatılamadı.")
+            setBusy(false)
+        }
+    }
+
     const handleUpdateProfile = async (e: React.FormEvent) => {
         e.preventDefault()
         const token = localStorage.getItem(TOKEN_KEY)
         if (!token) return
+        const digits = phone.replace(/\D/g, "")
+        if (digits.length < 10) {
+            setErr("Lütfen geçerli bir telefon numarası girin (05XX XXX XX XX).")
+            return
+        }
+        if (needsPhone && !termsAgreed) {
+            setErr("Devam etmek için lütfen Kullanım Koşulları ve KVKK Aydınlatma Metni kutucuğunu onaylayın.")
+            return
+        }
+        const wasNeedingPhone = needsPhone
         setBusy(true)
         setErr(null)
         setOkMsg(null)
@@ -274,7 +373,7 @@ export default function AuthPage({
             const res = await fetch(`${getApiBase()}/api/auth/me`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ fullName, phoneNumber: phone }),
+                body: JSON.stringify({ fullName: fullName.trim() || me?.fullName || "", phoneNumber: phone }),
             })
             const data = await res.json().catch(() => ({}))
             if (!res.ok) {
@@ -282,7 +381,11 @@ export default function AuthPage({
                 return
             }
             setMe(data.user)
-            setOkMsg("Profil bilgilerin güncellendi.")
+            if (wasNeedingPhone) {
+                setWelcomeOpen(true)
+            } else {
+                setOkMsg("Telefon numaranız ve profil bilgileriniz kaydedildi!")
+            }
         } finally {
             setBusy(false)
         }
@@ -316,7 +419,13 @@ export default function AuthPage({
         setErr(null)
     }
 
+    const needsPhone = !!me && !requireRole && (me.phoneNumber || "").replace(/\D/g, "").length < 10
+
     const closePage = () => {
+        if (needsPhone) {
+            setErr("Devam etmeden önce telefon numaranızı girip kaydetmelisiniz.")
+            return
+        }
         window.location.href = "/"
     }
 
@@ -351,7 +460,33 @@ export default function AuthPage({
                 <span className="pt-glow" aria-hidden="true" />
                 {closeBtn}
 
-                {me && !requireRole ? (
+                {welcomeOpen && me ? (
+                    <div style={{ textAlign: "center", padding: "18px 6px 6px" }}>
+                        <span className="pt-ic pt-ic-ok" style={{ margin: "0 auto 14px" }}>
+                            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M5 12.5l4.5 4.5L19 7.5" />
+                            </svg>
+                        </span>
+                        <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.03em", color: C.ink }}>
+                            Hoş geldiniz!
+                        </div>
+                        <p style={{ margin: "8px auto 0", maxWidth: 320, fontSize: 14, lineHeight: 1.5, color: C.ink2 }}>
+                            PayTaksi ile ucuz, güvenilir ve hızlı yolculuk yapmanın şimdi tam sırası! Üstelik ilk yolculuğunuza özel <b>%15 indirimli</b>.
+                        </p>
+                        <button
+                            type="button"
+                            className="pt-primary"
+                            onClick={() => {
+                                window.location.href = "/"
+                            }}
+                            style={{ marginTop: 20, justifyContent: "center", textAlign: "center" }}
+                        >
+                            <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: "-0.02em" }}>
+                                Tamam
+                            </span>
+                        </button>
+                    </div>
+                ) : me && !requireRole ? (
                     <>
                         {/* Profil görünümü */}
                         <div style={{ display: "flex", alignItems: "center", gap: 12, paddingRight: 40 }}>
@@ -370,53 +505,136 @@ export default function AuthPage({
                             </div>
                         </div>
 
-                        <form onSubmit={handleUpdateProfile} style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 18 }}>
+                        {needsPhone && (
+                            <div
+                                style={{
+                                    marginTop: 14,
+                                    fontSize: 12.5,
+                                    fontWeight: 600,
+                                    color: C.accent,
+                                    background: "rgba(58,58,244,0.08)",
+                                    border: "1px solid rgba(58,58,244,0.22)",
+                                    padding: "10px 12px",
+                                    borderRadius: 14,
+                                }}
+                            >
+                                Taksi çağırabilmek için telefon numaranızı girmeniz zorunludur.
+                            </div>
+                        )}
+
+                        <form onSubmit={handleUpdateProfile} style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: needsPhone ? 12 : 18 }}>
                             <label className="pt-tile pt-field">
                                 <span style={{ flex: 1, minWidth: 0 }}>
-                                    <span className="pt-label" style={{ display: "block" }}>Ad Soyad</span>
-                                    <input className="pt-input" value={fullName} onChange={(e) => setFullName(e.target.value)} required placeholder="Ahmet Yılmaz" />
+                                    <span className="pt-label" style={{ display: "block" }}>Ad (veya Ad Soyad)</span>
+                                    <input className="pt-input" value={fullName} onChange={(e) => setFullName(e.target.value)} required placeholder="İsminiz" />
                                 </span>
                             </label>
-                            <label className="pt-tile pt-field">
+                            <label
+                                className="pt-tile pt-field"
+                                style={needsPhone ? { borderColor: "rgba(58,58,244,0.45)", boxShadow: "0 0 0 3px rgba(58,58,244,0.12), inset 0 1px 0 #fff" } : undefined}
+                            >
                                 <span style={{ flex: 1, minWidth: 0 }}>
-                                    <span className="pt-label" style={{ display: "block" }}>Telefon numarası</span>
+                                    <span className="pt-label" style={{ display: "block" }}>
+                                        Telefon numarası <span style={{ color: "#B3261E" }}>*</span>
+                                    </span>
                                     <input
                                         className="pt-input"
                                         type="tel"
                                         inputMode="tel"
+                                        required
+                                        autoFocus={needsPhone}
                                         value={phone}
                                         onChange={(e) => setPhone(formatTrPhone(e.target.value))}
                                         placeholder="05XX XXX XX XX"
                                     />
                                 </span>
                             </label>
+                            {needsPhone && (
+                                <label
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "flex-start",
+                                        gap: 9,
+                                        padding: "10px 12px",
+                                        borderRadius: 14,
+                                        background: "rgba(255,255,255,0.68)",
+                                        border: "1px solid rgba(16,17,20,0.09)",
+                                        fontSize: 12,
+                                        lineHeight: 1.45,
+                                        color: C.ink2,
+                                        cursor: "pointer",
+                                    }}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={termsAgreed}
+                                        onChange={(e) => {
+                                            setTermsAgreed(e.target.checked)
+                                            if (e.target.checked) setErr(null)
+                                        }}
+                                        style={{ marginTop: 2, accentColor: C.accent, width: 16, height: 16, flexShrink: 0, cursor: "pointer" }}
+                                    />
+                                    <span>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault()
+                                                e.stopPropagation()
+                                                setDocModal("terms")
+                                            }}
+                                            style={{ border: 0, background: "none", padding: 0, cursor: "pointer", fontFamily: SANS, fontSize: 12, color: C.accent, fontWeight: 700, textDecoration: "underline" }}
+                                        >
+                                            Kullanım Koşulları ve Kullanıcı Sözleşmesi
+                                        </button>{" "}
+                                        ile{" "}
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault()
+                                                e.stopPropagation()
+                                                setDocModal("kvkk")
+                                            }}
+                                            style={{ border: 0, background: "none", padding: 0, cursor: "pointer", fontFamily: SANS, fontSize: 12, color: C.accent, fontWeight: 700, textDecoration: "underline" }}
+                                        >
+                                            KVKK Aydınlatma Metni
+                                        </button>
+                                        'ni okudum, kabul ediyorum.
+                                    </span>
+                                </label>
+                            )}
                             {msgs}
                             <button type="submit" disabled={busy} className="pt-primary" style={{ marginTop: 6 }}>
                                 <span style={{ flex: 1, minWidth: 0 }}>
-                                    <span style={{ display: "block", fontSize: 15, fontWeight: 700, letterSpacing: "-0.02em" }}>Profili güncelle</span>
-                                    <span style={{ display: "block", fontSize: 12, opacity: 0.82, marginTop: 2 }}>Bilgilerin anında kaydedilir</span>
+                                    <span style={{ display: "block", fontSize: 15, fontWeight: 700, letterSpacing: "-0.02em" }}>
+                                        {needsPhone ? "Numarayı kaydet ve devam et" : "Profili güncelle"}
+                                    </span>
+                                    <span style={{ display: "block", fontSize: 12, opacity: 0.82, marginTop: 2 }}>
+                                        {needsPhone ? "Sürücünün size ulaşabilmesi için gereklidir" : "Bilgilerin anında kaydedilir"}
+                                    </span>
                                 </span>
                             </button>
                         </form>
 
-                        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
-                            {me.roles.includes("Admin") && (
-                                <a href="/admin" className="pt-ghost" style={{ textDecoration: "none" }}>
-                                    <span>Admin Paneli</span>
-                                    <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.ink2, fontWeight: 500 }}>/admin</span>
+                        {!needsPhone && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
+                                {me.roles.includes("Admin") && (
+                                    <a href="/admin" className="pt-ghost" style={{ textDecoration: "none" }}>
+                                        <span>Admin Paneli</span>
+                                        <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.ink2, fontWeight: 500 }}>/admin</span>
+                                    </a>
+                                )}
+                                {me.roles.includes("Taksici") && (
+                                    <a href="/surucu" className="pt-ghost" style={{ textDecoration: "none" }}>
+                                        <span>Sürücü Paneli</span>
+                                        <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.ink2, fontWeight: 500 }}>/surucu</span>
+                                    </a>
+                                )}
+                                <a href="/" className="pt-ghost" style={{ textDecoration: "none" }}>
+                                    <span>Ana sayfaya dön</span>
+                                    <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.ink2, fontWeight: 500 }}>Taksi çağır</span>
                                 </a>
-                            )}
-                            {me.roles.includes("Taksici") && (
-                                <a href="/surucu" className="pt-ghost" style={{ textDecoration: "none" }}>
-                                    <span>Sürücü Paneli</span>
-                                    <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.ink2, fontWeight: 500 }}>/surucu</span>
-                                </a>
-                            )}
-                            <a href="/" className="pt-ghost" style={{ textDecoration: "none" }}>
-                                <span>Ana sayfaya dön</span>
-                                <span style={{ fontFamily: MONO, fontSize: 12.5, color: C.ink2, fontWeight: 500 }}>Taksi çağır</span>
-                            </a>
-                        </div>
+                            </div>
+                        )}
 
                         <div style={{ display: "flex", justifyContent: "space-between", marginTop: 14 }}>
                             <button type="button" onClick={logout} className="pt-linkbtn" style={{ color: C.ink2 }}>
@@ -585,6 +803,61 @@ export default function AuthPage({
                                 </div>
                             )}
 
+                            {mode === "register" && !requireRole && (
+                                <label
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "flex-start",
+                                        gap: 9,
+                                        marginTop: 12,
+                                        padding: "10px 12px",
+                                        borderRadius: 14,
+                                        background: "rgba(255,255,255,0.68)",
+                                        border: "1px solid rgba(16,17,20,0.09)",
+                                        fontSize: 12,
+                                        lineHeight: 1.45,
+                                        color: C.ink2,
+                                        cursor: "pointer",
+                                    }}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={termsAgreed}
+                                        onChange={(e) => {
+                                            setTermsAgreed(e.target.checked)
+                                            if (e.target.checked) setErr(null)
+                                        }}
+                                        style={{ marginTop: 2, accentColor: C.accent, width: 16, height: 16, flexShrink: 0, cursor: "pointer" }}
+                                    />
+                                    <span>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault()
+                                                e.stopPropagation()
+                                                setDocModal("terms")
+                                            }}
+                                            style={{ border: 0, background: "none", padding: 0, cursor: "pointer", fontFamily: SANS, fontSize: 12, color: C.accent, fontWeight: 700, textDecoration: "underline" }}
+                                        >
+                                            Kullanım Koşulları ve Kullanıcı Sözleşmesi
+                                        </button>{" "}
+                                        ile{" "}
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault()
+                                                e.stopPropagation()
+                                                setDocModal("kvkk")
+                                            }}
+                                            style={{ border: 0, background: "none", padding: 0, cursor: "pointer", fontFamily: SANS, fontSize: 12, color: C.accent, fontWeight: 700, textDecoration: "underline" }}
+                                        >
+                                            KVKK Aydınlatma Metni
+                                        </button>
+                                        'ni okudum, kabul ediyorum.
+                                    </span>
+                                </label>
+                            )}
+
                             {(err || okMsg) && <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>{msgs}</div>}
 
                             {/* Aksiyonlar */}
@@ -608,7 +881,7 @@ export default function AuthPage({
                                 {!requireRole && (
                                     <>
                                         <div className="pt-divider">veya</div>
-                                        <button type="button" className="pt-ghost" onClick={() => setOkMsg("Google ile giriş yakında aktif olacak.")}>
+                                        <button type="button" disabled={busy} className="pt-ghost" onClick={handleGoogleAuth}>
                                             <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
                                                 <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
                                                     <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z" />
@@ -648,6 +921,195 @@ export default function AuthPage({
                     </>
                 )}
             </div>
+
+            {/* Sözleşme & KVKK Beyaz Kağıt Okuma Modalı */}
+            {docModal && (
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={docModal === "terms" ? "Kullanım Koşulları ve Kullanıcı Sözleşmesi" : "KVKK Aydınlatma Metni"}
+                    onClick={() => setDocModal(null)}
+                    style={{
+                        position: "fixed",
+                        inset: 0,
+                        zIndex: 10050,
+                        background: "rgba(16, 17, 20, 0.48)",
+                        backdropFilter: "blur(5px)",
+                        WebkitBackdropFilter: "blur(5px)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: 16,
+                        boxSizing: "border-box",
+                        animation: "ptFade .2s ease-out both",
+                    }}
+                >
+                    <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                            position: "relative",
+                            width: "100%",
+                            maxWidth: 640,
+                            maxHeight: "84dvh",
+                            background: "#FFFFFF",
+                            color: C.ink,
+                            fontFamily: SANS,
+                            borderRadius: 24,
+                            boxShadow: "0 36px 90px -20px rgba(16, 17, 24, 0.45), 0 0 0 1px rgba(16, 17, 20, 0.08)",
+                            display: "flex",
+                            flexDirection: "column",
+                            overflow: "hidden",
+                            animation: "ptIn .28s cubic-bezier(.2,.8,.2,1) both",
+                        }}
+                    >
+                        {/* Üst Başlık & Çarpı (Kapat) Butonu */}
+                        <div
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: 12,
+                                padding: "18px 22px 14px",
+                                borderBottom: "1px solid rgba(16, 17, 20, 0.08)",
+                                background: "#FFFFFF",
+                                flexShrink: 0,
+                            }}
+                        >
+                            <div>
+                                <div style={{ fontFamily: MONO, fontSize: 11, color: C.accent, fontWeight: 600 }}>
+                                    PAYTAKSİ · YASAL METİN
+                                </div>
+                                <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.025em", color: C.ink, marginTop: 2 }}>
+                                    {docModal === "terms"
+                                        ? "Kullanım Koşulları ve Kullanıcı Sözleşmesi"
+                                        : "6698 Sayılı KVKK Aydınlatma Metni"}
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                aria-label="Kapat"
+                                onClick={() => setDocModal(null)}
+                                style={{
+                                    width: 34,
+                                    height: 34,
+                                    borderRadius: 999,
+                                    border: "1px solid rgba(16, 17, 20, 0.12)",
+                                    background: "#F6F6F8",
+                                    display: "grid",
+                                    placeItems: "center",
+                                    cursor: "pointer",
+                                    flexShrink: 0,
+                                    padding: 0,
+                                }}
+                            >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#101114" strokeWidth="2.4" strokeLinecap="round">
+                                    <path d="M18 6L6 18M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        {/* Beyaz Kağıt İçerik Alanı (Kaydırılabilir) */}
+                        <div
+                            style={{
+                                padding: "20px 24px",
+                                overflowY: "auto",
+                                fontSize: 14,
+                                lineHeight: 1.68,
+                                color: "#383A42",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 12,
+                            }}
+                        >
+                            {docModal === "terms" ? (
+                                <>
+                                    <div style={{ fontWeight: 700, color: C.ink, fontSize: 15 }}>1. Taraflar, Konu ve Yasal Dayanak</div>
+                                    <p style={{ margin: 0 }}>
+                                        İşbu Kullanım Koşulları ve Kullanıcı Sözleşmesi (“Sözleşme”), <b>www.paytaksi.com.tr</b> üzerinden faaliyet gösteren <b>PayTaksi Dijital Ulaşım Platformu</b> (“PayTaksi”) ile Platform’a üye olan veya hizmetlerden yararlanan gerçek kişi (“Kullanıcı” / “Yolcu”) arasında; <b>6098 sayılı Türk Borçlar Kanunu</b>, <b>6563 sayılı Elektronik Ticaretin Düzenlenmesi Hakkında Kanun</b>, <b>6502 sayılı Tüketicinin Korunması Hakkında Kanun</b>, <b>5651 sayılı Kanun</b> ve <b>6698 sayılı KVKK</b> hükümlerine uygun olarak elektronik ortamda yürürlüğe girmiştir.
+                                    </p>
+
+                                    <div style={{ fontWeight: 700, color: C.ink, fontSize: 15, marginTop: 4 }}>2. PayTaksi’nin Hukuki Statüsü (Aracı Hizmet Sağlayıcı)</div>
+                                    <p style={{ margin: 0 }}>
+                                        PayTaksi, <b>6563 sayılı Kanun</b> kapsamında “Aracı Hizmet Sağlayıcı” statüsündedir. PayTaksi doğrudan taşımacılık yapmamakta; taksi ihtiyacı bulunan Yolcu ile Elazığ il sınırları içinde resmi ticari plakalı (`23 T`) bağımsız Taksi Sürücüsünü dijital ortamda eşleştiren teknolojik altyapıyı sunmaktadır.
+                                    </p>
+
+                                    <div style={{ fontWeight: 700, color: C.ink, fontSize: 15, marginTop: 4 }}>3. Üyelik ve Çağrı Kuralları</div>
+                                    <p style={{ margin: 0 }}>
+                                        Sürücünün yolcuya ulaşabilmesi için geçerli bir cep telefonu numarasının (`05XX XXX XX XX`) girilmesi zorunludur. Üye girişi yapmadan nakit ödeme seçeneğiyle oluşturulan çağrılarda sahte çağrıları önlemek adına 60 dakikalık bekleme süresi uygulanır; üye girişi yapan ve cüzdan bakiyesi kullanan kullanıcılar %15 indirimle kesintisiz çağrı oluşturabilir.
+                                    </p>
+
+                                    <div style={{ fontWeight: 700, color: C.ink, fontSize: 15, marginTop: 4 }}>4. Ücretlendirme ve 6493 Sayılı Kanun Kapsamında Ödeme</div>
+                                    <p style={{ margin: 0 }}>
+                                        Yolculuk ücretleri güncel Elazığ taksi tarifesi (İndi-Bindi `250 TL`, Açılış `50 TL`, Km başı `45 TL/km`) esas alınarak karayolu mesafesine göre otomatik hesaplanır. Kartlı bakiye yükleme işlemleri <b>6493 sayılı Kanun</b> uyarınca TCMB ve BDDK lisanslı ödeme kuruluşu <b>PayTR</b> 3D Secure altyapısı üzerinden gerçekleştirilir; PayTaksi kart bilgilerini kesinlikle saklamaz.
+                                    </p>
+
+                                    <div style={{ fontWeight: 700, color: C.ink, fontSize: 15, marginTop: 4 }}>5. Uyuşmazlıkların Çözümü</div>
+                                    <p style={{ margin: 0 }}>
+                                        İşbu Sözleşme’den doğabilecek uyuşmazlıklarda Türkiye Cumhuriyeti Hukuku uygulanır ve <b>Elazığ Mahkemeleri ile Tüketici Hakem Heyetleri</b> yetkilidir.
+                                    </p>
+                                </>
+                            ) : (
+                                <>
+                                    <div style={{ fontWeight: 700, color: C.ink, fontSize: 15 }}>1. Veri Sorumlusunun Kimliği</div>
+                                    <p style={{ margin: 0 }}>
+                                        <b>6698 sayılı Kişisel Verilerin Korunması Kanunu’nun (“KVKK”) 10. maddesi</b> ve ilgili Tebliğ uyarınca kişisel verileriniz, veri sorumlusu sıfatıyla <b>PayTaksi Dijital Ulaşım Platformu – Eşref KIZILARSLAN</b> (www.paytaksi.com.tr · Merkez / Elazığ · Tel: 0501 136 68 15) tarafından aşağıda açıklanan kapsamda işlenmektedir.
+                                    </p>
+
+                                    <div style={{ fontWeight: 700, color: C.ink, fontSize: 15, marginTop: 4 }}>2. İşlenen Kişisel Veriler ve Hukuki Sebepler (KVKK m. 5)</div>
+                                    <p style={{ margin: 0 }}>
+                                        <b>Kimlik (Ad, Soyad)</b>, <b>İletişim (Telefon Numarası, E-posta)</b>, <b>Lokasyon (Alış/Varış Konumu, GPS)</b>, <b>Yolculuk/İşlem Kayıtları</b> ve <b>İşlem Güvenliği (IP, Log)</b> verileriniz; KVKK Madde 5/2-a (Kanunlarda açıkça öngörülmesi – 5651 ve 6563 sayılı Kanunlar), Madde 5/2-c (Taksi çağırma ve üyelik sözleşmesinin kurulması ve ifası), Madde 5/2-ç (Hukuki yükümlülük) ve Madde 5/2-f (Veri sorumlusunun meşru menfaati) hukuki sebeplerine dayanılarak elektronik ortamda işlenmektedir.
+                                    </p>
+
+                                    <div style={{ fontWeight: 700, color: C.ink, fontSize: 15, marginTop: 4 }}>3. Kişisel Verilerin Aktarılması (KVKK m. 8)</div>
+                                    <p style={{ margin: 0 }}>
+                                        Adınız, telefon numaranız ve alış/varış adresiniz yalnızca çağrınızı kabul eden resmi ticari taksi sürücüsüne; bakiye yükleme işlem bilgileriniz ise 6493 sayılı Kanun kapsamında BDDK lisanslı ödeme kuruluşu <b>PayTR</b>’ye ve yasal zorunluluk halinde yetkili kamu kurumlarına aktarılır.
+                                    </p>
+
+                                    <div style={{ fontWeight: 700, color: C.ink, fontSize: 15, marginTop: 4 }}>4. KVKK Madde 11 Kapsamındaki Haklarınız</div>
+                                    <p style={{ margin: 0 }}>
+                                        KVKK’nın 11. maddesi kapsamındaki bilgi talep etme, düzeltme ve silme haklarınızı <b>destek@paytaksi.com.tr</b> adresine e-posta göndererek veya profil ekranındaki <b>“Hesabı sil”</b> butonuyla her zaman kullanabilirsiniz.
+                                    </p>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Alt Bar */}
+                        <div
+                            style={{
+                                padding: "12px 22px 16px",
+                                borderTop: "1px solid rgba(16, 17, 20, 0.08)",
+                                background: "#FAFAFC",
+                                display: "flex",
+                                justifyContent: "flex-end",
+                                gap: 10,
+                                flexShrink: 0,
+                            }}
+                        >
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setTermsAgreed(true)
+                                    setErr(null)
+                                    setDocModal(null)
+                                }}
+                                style={{
+                                    padding: "10px 18px",
+                                    borderRadius: 12,
+                                    border: 0,
+                                    background: C.accent,
+                                    color: "#fff",
+                                    fontFamily: SANS,
+                                    fontSize: 13.5,
+                                    fontWeight: 700,
+                                    cursor: "pointer",
+                                }}
+                            >
+                                Okudum, Onayla ve Kapat
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
