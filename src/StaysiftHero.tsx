@@ -3492,6 +3492,9 @@ export default function StaysiftHero(props: HeroProps) {
                                 >
                                     Tarifeler
                                 </a>
+                                <a className="ss-link" href="/hizmet-bolgeleri">
+                                    Hizmet Bölgeleri
+                                </a>
                                 <a
                                     className="ss-link"
                                     href="/bizimle-calisin"
@@ -3665,6 +3668,7 @@ export default function StaysiftHero(props: HeroProps) {
                         >
                             {[
                                 { title: "Tarifeler", desc: "İndi-bindi & km ücreti", href: "#tarife", action: "tariff" },
+                                { title: "Hizmet Bölgeleri", desc: "Elazığ & tüm ilçeler", href: "/hizmet-bolgeleri", action: "areas" },
                                 { title: "Bizimle Çalışın", desc: "Taksici olarak katıl", href: "/bizimle-calisin", action: "partner" },
                                 { title: "Hakkımızda", desc: "Paytaksi bilgi", href: "/hakkimizda", action: "about" },
                             ].map((item) => (

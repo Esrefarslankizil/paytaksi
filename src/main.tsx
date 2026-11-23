@@ -8,6 +8,7 @@ import AboutPage from "./components/AboutPage"
 import PartnerPage from "./components/PartnerPage"
 import CookiePolicyPage from "./components/CookiePolicyPage"
 import LegalPage from "./components/LegalPage"
+import ServiceAreasPage from "./components/ServiceAreasPage"
 import Footer from "./components/Footer"
 
 function App() {
@@ -20,6 +21,9 @@ function App() {
     }
     if (path.startsWith("/hakkimizda")) {
         return <AboutPage />
+    }
+    if (path.startsWith("/hizmet-bolgeleri")) {
+        return <ServiceAreasPage />
     }
     if (path.startsWith("/bizimle-calisin")) {
         return <PartnerPage />

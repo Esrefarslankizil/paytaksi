@@ -180,6 +180,7 @@ export default function Footer() {
                         <ul className="pt-ft-list">
                             <li><a className="pt-ft-link" href="#top" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: "smooth" }) }}>Taksi Çağır</a></li>
                             <li><a className="pt-ft-link" href="#tarife" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: "smooth" }) }}>Tarifeler</a></li>
+                            <li><a className="pt-ft-link" href="/hizmet-bolgeleri">Hizmet Bölgeleri</a></li>
                             <li><a className="pt-ft-link" href="/giris">Giriş Yap</a></li>
                             <li><a className="pt-ft-link" href="/kayit">Hesap Oluştur</a></li>
                         </ul>
