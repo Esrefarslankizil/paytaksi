@@ -4965,49 +4965,12 @@ export default function StaysiftHero(props: HeroProps) {
                                             </button>
                                         </div>
                                         <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "center", gap: 6 }}>
-                                            {/* PayTR Logo */}
-                                            <span style={{ height: 26, padding: "0 8px", borderRadius: 7, border: "1px solid rgba(16,17,20,0.1)", background: "#fff", display: "inline-flex", alignItems: "center" }}>
-                                                <svg width="46" height="14" viewBox="0 0 108 32" aria-label="PayTR">
-                                                    <rect x="0" y="4" width="24" height="24" rx="6" fill="#0B5CAD" />
-                                                    <path d="M7 16.5l3.5 3.5 6.5-7" fill="none" stroke="#fff" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
-                                                    <text x="30" y="23" fontFamily="'Inter Tight', 'Inter', sans-serif" fontWeight="800" fontSize="21" letterSpacing="-0.6" fill="#101114">
-                                                        Pay<tspan fill="#0B5CAD">TR</tspan>
-                                                    </text>
-                                                </svg>
-                                            </span>
-                                            {/* VISA Logo */}
-                                            <span style={{ height: 26, padding: "0 8px", borderRadius: 7, border: "1px solid rgba(16,17,20,0.1)", background: "#fff", display: "inline-flex", alignItems: "center" }}>
-                                                <svg width="36" height="12" viewBox="0 0 84 28" aria-label="VISA">
-                                                    <text x="2" y="22" fontFamily="'Inter Tight', 'Arial Black', sans-serif" fontWeight="900" fontStyle="italic" fontSize="25" letterSpacing="-1" fill="#1A1F71">
-                                                        VISA
-                                                    </text>
-                                                    <path d="M4 4h11l3 5" fill="none" stroke="#F7B600" strokeWidth="2.6" strokeLinecap="round" />
-                                                </svg>
-                                            </span>
-                                            {/* Mastercard Logo */}
-                                            <span style={{ height: 26, padding: "0 8px", borderRadius: 7, border: "1px solid rgba(16,17,20,0.1)", background: "#fff", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                                                <svg width="24" height="14" viewBox="0 0 36 22" aria-label="Mastercard">
-                                                    <circle cx="13" cy="11" r="9" fill="#EB001B" />
-                                                    <circle cx="23" cy="11" r="9" fill="#F79E1B" fillOpacity="0.9" />
-                                                </svg>
-                                            </span>
-                                            {/* TROY Logo */}
-                                            <span style={{ height: 26, padding: "0 8px", borderRadius: 7, border: "1px solid rgba(16,17,20,0.1)", background: "#fff", display: "inline-flex", alignItems: "center" }}>
-                                                <svg width="40" height="14" viewBox="0 0 92 32" aria-label="TROY">
-                                                    <text x="2" y="23" fontFamily="'Inter Tight', 'Inter', sans-serif" fontWeight="900" fontSize="23" letterSpacing="-0.5" fill="#003865">
-                                                        troy
-                                                    </text>
-                                                    <circle cx="67" cy="15" r="7.5" fill="#00A3E0" />
-                                                    <path d="M64 15l2.2 2.2 4.5-4.5" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-                                                </svg>
-                                            </span>
-                                            {/* 256-Bit SSL */}
-                                            <span style={{ height: 26, padding: "0 8px", borderRadius: 7, border: "1px solid rgba(16,17,20,0.1)", background: "#fff", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 700, color: "#0E8A5F" }}>
+                                            <span style={{ height: 26, padding: "0 10px", borderRadius: 7, border: "1px solid rgba(16,17,20,0.1)", background: "#fff", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10.5, fontWeight: 700, color: "#0E8A5F" }}>
                                                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0E8A5F" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                                                     <rect x="4" y="11" width="16" height="10" rx="2" />
                                                     <path d="M8 11V7a4 4 0 0 1 8 0v4" />
                                                 </svg>
-                                                256-Bit SSL
+                                                256-Bit SSL Güvenli Bağlantı
                                             </span>
                                         </div>
                                     </>

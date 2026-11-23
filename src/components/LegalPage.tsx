@@ -101,26 +101,26 @@ export default function LegalPage({ page }: { page: LegalSlug }) {
                         <article className="lp-prose">
                             <h2>1. Taraflar, Konu ve Yasal Dayanak</h2>
                             <p>
-                                <b>1.1.</b> İşbu Kullanım Koşulları ve Kullanıcı Sözleşmesi (“Sözleşme”), <a href="https://paytaksi.com.tr">www.paytaksi.com.tr</a> alan adlı internet sitesi ve mobil web arayüzü (“Platform” veya “Site”) üzerinden faaliyet gösteren <b>PayTaksi Dijital Ulaşım Platformu</b> (“PayTaksi”) ile Platform’a üye olan veya üye olmaksızın hizmetlerden yararlanan gerçek kişi (“Kullanıcı” veya “Yolcu”) arasında, Kullanıcının elektronik ortamda onay vermesi veya Site’yi kullanmaya başlamasıyla birlikte yürürlüğe girmiştir.
+                                <b>1.1.</b> İşbu Kullanım Koşulları ve Kullanıcı Sözleşmesi (“Sözleşme”), <a href="https://paytaksi.com.tr">www.paytaksi.com.tr</a> alan adlı internet sitesi (“PayTaksi” veya “Site”) ile Site’ye üye olan veya üye olmaksızın taksi çağırma hizmetinden yararlanan gerçek kişi (“Kullanıcı” veya “Yolcu”) arasında, Kullanıcının elektronik ortamda onay vermesi veya Site’yi kullanmaya başlamasıyla birlikte yürürlüğe girmiştir.
                             </p>
                             <p>
-                                <b>1.2.</b> İşbu Sözleşme; <b>6098 sayılı Türk Borçlar Kanunu</b>, <b>6563 sayılı Elektronik Ticaretin Düzenlenmesi Hakkında Kanun</b>, <b>6502 sayılı Tüketicinin Korunması Hakkında Kanun</b>, <b>5651 sayılı İnternet Ortamında Yapılan Yayınların Düzenlenmesi ve Bu Yayınlar Yoluyla İşlenen Suçlarla Mücadele Edilmesi Hakkında Kanun</b> ve <b>6698 sayılı Kişisel Verilerin Korunması Kanunu (“KVKK”)</b> hükümlerine uygun olarak hazırlanmıştır.
+                                <b>1.2.</b> İşbu Sözleşme; <b>6098 sayılı Türk Borçlar Kanunu</b>, <b>6502 sayılı Tüketicinin Korunması Hakkında Kanun</b> ve <b>6698 sayılı Kişisel Verilerin Korunması Kanunu (“KVKK”)</b> hükümlerine uygun olarak hazırlanmıştır.
                             </p>
 
                             <h2>2. Tanımlar</h2>
                             <ul>
-                                <li><b>Platform (Site):</b> PayTaksi tarafından işletilen <a href="https://paytaksi.com.tr">www.paytaksi.com.tr</a> alan adlı web sitesi ve bağlı dijital servisleri.</li>
-                                <li><b>Yolcu (Kullanıcı):</b> Platform üzerinden alış ve varış noktası belirleyerek ticari taksi çağıran ve/veya seçtiği yolculuk için tek seferlik online ödeme yapan gerçek kişi.</li>
-                                <li><b>Sürücü (Kaptan):</b> Elazığ il sınırları içerisinde ilgili belediye ve meslek odası mevzuatına uygun resmi ticari taksi plakası (23 T) ve sürücü belgesi ile yolcu taşımacılığı yapan bağımsız taşımacı.</li>
-                                <li><b>Tek Seferlik Online Ödeme:</b> Yolcunun yalnızca seçtiği güzergâhın sabit yolculuk bedelini <b>6493 sayılı Kanun</b> kapsamında TCMB/BDDK lisanslı ödeme kuruluşu altyapısı aracılığıyla %15 indirim avantajıyla kredi/banka kartından tek seferde ödemesi. (Platformda ön ödemeli cüzdan veya bakiye saklama sistemi bulunmamaktadır.)</li>
+                                <li><b>Site:</b> <a href="https://paytaksi.com.tr">www.paytaksi.com.tr</a> alan adlı internet sitesi ve mobil web arayüzü.</li>
+                                <li><b>Yolcu (Kullanıcı):</b> Site üzerinden alış ve varış noktası belirleyerek ticari taksi çağıran ve/veya seçtiği yolculuk için tek seferlik online ödeme yapan gerçek kişi.</li>
+                                <li><b>Sürücü (Kaptan):</b> Elazığ il sınırları içerisinde resmi ticari taksi plakası (23 T) ile yolcu taşımacılığı yapan taksi sürücüsü.</li>
+                                <li><b>Tek Seferlik Online Ödeme:</b> Yolcunun yalnızca seçtiği güzergâhın sabit yolculuk bedelini %15 indirim avantajıyla kredi/banka kartından tek seferde ödemesi.</li>
                             </ul>
 
-                            <h2>3. PayTaksi’nin Hukuki Statüsü (Aracı Hizmet Sağlayıcı)</h2>
+                            <h2>3. Hizmet Kapsamı</h2>
                             <p>
-                                <b>3.1.</b> PayTaksi, <b>6563 sayılı Elektronik Ticaretin Düzenlenmesi Hakkında Kanun</b> ve <b>Elektronik Ticarette Hizmet Sağlayıcı ve Aracı Hizmet Sağlayıcılar Hakkında Yönetmelik</b> kapsamında <b>“Aracı Hizmet Sağlayıcı”</b> ve teknoloji platformu statüsündedir.
+                                <b>3.1.</b> PayTaksi, Elazığ il sınırları içerisinde taksi ihtiyacı bulunan yolcuların alış ve varış noktalarını kolayca seçip sabit ücret görerek en yakın resmi ticari taksiye ulaşmasını sağlayan dijital yönlendirme hizmetidir.
                             </p>
                             <p>
-                                <b>3.2.</b> PayTaksi bizzat ticari taksi işletmeciliği veya doğrudan yolcu taşımacılığı yapmamakta; yalnızca taksi ihtiyacı bulunan Yolcu ile bağımsız Sürücüyü dijital ortamda eşleştiren teknolojik altyapıyı sunmaktadır. Taşıma hizmeti, doğrudan ilgili ticari taksi Sürücüsü tarafından ilgili karayolu taşıma ve belediye mevzuatı çerçevesinde sunulur.
+                                <b>3.2.</b> Taşıma hizmeti, doğrudan ilgili resmi ticari taksi sürücüsü tarafından karayolu taşıma ve belediye mevzuatı çerçevesinde sunulur.
                             </p>
 
                             <h2>4. Üyelik, Kullanım Şartları ve Çağrı Kuralları</h2>
@@ -201,7 +201,7 @@ export default function LegalPage({ page }: { page: LegalSlug }) {
                         <article className="lp-prose">
                             <h2>1. Veri Sorumlusunun Kimliği</h2>
                             <p>
-                                İşbu Aydınlatma Metni, <b>6698 sayılı Kişisel Verilerin Korunması Kanunu’nun (“KVKK”) 10. maddesi</b> ile <b>Aydınlatma Yükümlülüğünün Yerine Getirilmesinde Uyulacak Usul ve Esaslar Hakkında Tebliğ</b> kapsamında, veri sorumlusu sıfatıyla <b>PayTaksi Dijital Ulaşım Platformu – Eşref KIZILARSLAN</b> (<a href="https://paytaksi.com.tr">www.paytaksi.com.tr</a> · Merkez / Elazığ · Tel: 0501 136 68 15) tarafından yolcularımızın, ziyaretçilerimizin ve sürücü adaylarımızın kişisel verilerinin işlenmesine ilişkin usul ve esasları açıklamak amacıyla hazırlanmıştır.
+                                İşbu Aydınlatma Metni, <b>6698 sayılı Kişisel Verilerin Korunması Kanunu’nun (“KVKK”) 10. maddesi</b> kapsamında, <a href="https://paytaksi.com.tr">www.paytaksi.com.tr</a> (<b>PayTaksi</b> · Yetkili: Eşref KIZILARSLAN · Merkez / Elazığ · Tel: 0501 136 68 15) tarafından kullanıcıların kişisel verilerinin işlenmesine ilişkin usul ve esasları açıklamak amacıyla hazırlanmıştır.
                             </p>
 
                             <h2>2. İşlenen Kişisel Veri Kategorileri, Amaçları ve Hukuki Sebepleri</h2>
@@ -317,8 +317,8 @@ export default function LegalPage({ page }: { page: LegalSlug }) {
                         <article className="lp-prose">
                             <h2>Madde 1 – Taraflar</h2>
                             <p>
-                                <b>1.1. Hizmet Sağlayıcı / Aracı Platform Bilgileri:</b><br />
-                                <b>Unvan / Platform Adı:</b> PayTaksi Dijital Ulaşım Platformu (Yetkili / İşletmeci: Eşref KIZILARSLAN)<br />
+                                <b>1.1. Hizmet Sağlayıcı Bilgileri:</b><br />
+                                <b>Ad Soyad / Site:</b> Eşref KIZILARSLAN (PayTaksi)<br />
                                 <b>İnternet Sitesi:</b> <a href="https://paytaksi.com.tr">www.paytaksi.com.tr</a><br />
                                 <b>Adres:</b> Cumhuriyet Mah. Malatya Cad. Merkez / Elazığ (23040)<br />
                                 <b>Telefon:</b> <a href="tel:+905011366815">0501 136 68 15</a><br />
@@ -382,31 +382,31 @@ export default function LegalPage({ page }: { page: LegalSlug }) {
 
                             <div className="lp-contact-grid">
                                 <div className="lp-contact-card">
-                                    <div className="lp-contact-label">PLATFORM & YETKİLİ İŞLETMECİ</div>
-                                    <div className="lp-contact-val">PayTaksi Dijital Ulaşım Platformu</div>
-                                    <div className="lp-contact-sub">Yetkili: Eşref KIZILARSLAN · www.paytaksi.com.tr</div>
+                                    <div className="lp-contact-label">YETKİLİ & SİTE</div>
+                                    <div className="lp-contact-val">Eşref KIZILARSLAN · PayTaksi</div>
+                                    <div className="lp-contact-sub">www.paytaksi.com.tr</div>
                                 </div>
 
                                 <div className="lp-contact-card">
-                                    <div className="lp-contact-label">TELEFON & MÜŞTERİ DESTEK HATTI</div>
+                                    <div className="lp-contact-label">TELEFON & DESTEK HATTI</div>
                                     <div className="lp-contact-val">
                                         <a href="tel:+905011366815">0501 136 68 15</a>
                                     </div>
-                                    <div className="lp-contact-sub">7/24 Çağrı Merkezi, İade ve WhatsApp Destek Hattı</div>
+                                    <div className="lp-contact-sub">7/24 Taksi, İade ve WhatsApp Destek Hattı</div>
                                 </div>
 
                                 <div className="lp-contact-card">
-                                    <div className="lp-contact-label">MERKEZ ADRES</div>
+                                    <div className="lp-contact-label">ADRES</div>
                                     <div className="lp-contact-val">Cumhuriyet Mah. Malatya Cad. Merkez / Elazığ</div>
                                     <div className="lp-contact-sub">Elazığ, Türkiye (Posta Kodu: 23040)</div>
                                 </div>
 
                                 <div className="lp-contact-card">
-                                    <div className="lp-contact-label">KURUMSAL E-POSTA & İADE DESTEK</div>
+                                    <div className="lp-contact-label">E-POSTA & İADE DESTEK</div>
                                     <div className="lp-contact-val">
                                         <a href="mailto:destek@paytaksi.com.tr">destek@paytaksi.com.tr</a>
                                     </div>
-                                    <div className="lp-contact-sub">7/24 Yolcu, Sürücü, KVKK ve İade Desteği</div>
+                                    <div className="lp-contact-sub">7/24 Yolcu, KVKK ve İade Desteği</div>
                                 </div>
                             </div>
                         </article>

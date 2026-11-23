@@ -186,9 +186,9 @@ export default function Footer() {
                         </ul>
                     </div>
 
-                    {/* Column 2: Kurumsal */}
+                    {/* Column 2: PayTaksi */}
                     <div>
-                        <p className="pt-ft-col-title">Kurumsal</p>
+                        <p className="pt-ft-col-title">PayTaksi</p>
                         <ul className="pt-ft-list">
                             <li><a className="pt-ft-link" href="/hakkimizda">Hakkımızda</a></li>
                             <li><a className="pt-ft-link" href="/bizimle-calisin">Bizimle Çalışın</a></li>
@@ -215,94 +215,6 @@ export default function Footer() {
                 <div className="pt-ft-bottom">
                     <div>© 2026 PayTaksi. Tüm hakları saklıdır. · Merkez / Elazığ</div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                        {/* PayTR Logo Badge */}
-                        <span
-                            title="PayTR Güvenli Ödeme"
-                            style={{
-                                height: 30,
-                                padding: "0 10px",
-                                borderRadius: 8,
-                                border: `1px solid ${C.line}`,
-                                background: "#fff",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 6,
-                            }}
-                        >
-                            <svg width="54" height="16" viewBox="0 0 108 32" aria-label="PayTR">
-                                <rect x="0" y="4" width="24" height="24" rx="6" fill="#0B5CAD" />
-                                <path d="M7 16.5l3.5 3.5 6.5-7" fill="none" stroke="#fff" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
-                                <text x="30" y="23" fontFamily="'Inter Tight', 'Inter', sans-serif" fontWeight="800" fontSize="21" letterSpacing="-0.6" fill="#101114">
-                                    Pay<tspan fill="#0B5CAD">TR</tspan>
-                                </text>
-                            </svg>
-                        </span>
-
-                        {/* VISA Logo Badge */}
-                        <span
-                            title="VISA"
-                            style={{
-                                height: 30,
-                                padding: "0 10px",
-                                borderRadius: 8,
-                                border: `1px solid ${C.line}`,
-                                background: "#fff",
-                                display: "inline-flex",
-                                alignItems: "center",
-                            }}
-                        >
-                            <svg width="42" height="14" viewBox="0 0 84 28" aria-label="VISA">
-                                <text x="2" y="22" fontFamily="'Inter Tight', 'Arial Black', sans-serif" fontWeight="900" fontStyle="italic" fontSize="25" letterSpacing="-1" fill="#1A1F71">
-                                    VISA
-                                </text>
-                                <path d="M4 4h11l3 5" fill="none" stroke="#F7B600" strokeWidth="2.6" strokeLinecap="round" />
-                            </svg>
-                        </span>
-
-                        {/* Mastercard Logo Badge */}
-                        <span
-                            title="Mastercard"
-                            style={{
-                                height: 30,
-                                padding: "0 10px",
-                                borderRadius: 8,
-                                border: `1px solid ${C.line}`,
-                                background: "#fff",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 6,
-                            }}
-                        >
-                            <svg width="30" height="18" viewBox="0 0 36 22" aria-label="Mastercard">
-                                <circle cx="13" cy="11" r="9" fill="#EB001B" />
-                                <circle cx="23" cy="11" r="9" fill="#F79E1B" fillOpacity="0.9" />
-                            </svg>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: C.ink, letterSpacing: "-0.02em" }}>mastercard</span>
-                        </span>
-
-                        {/* TROY Logo Badge */}
-                        <span
-                            title="TROY Türkiye'nin Ödeme Yöntemi"
-                            style={{
-                                height: 30,
-                                padding: "0 10px",
-                                borderRadius: 8,
-                                border: `1px solid ${C.line}`,
-                                background: "#fff",
-                                display: "inline-flex",
-                                alignItems: "center",
-                            }}
-                        >
-                            <svg width="46" height="16" viewBox="0 0 92 32" aria-label="TROY">
-                                <text x="2" y="23" fontFamily="'Inter Tight', 'Inter', sans-serif" fontWeight="900" fontSize="23" letterSpacing="-0.5" fill="#003865">
-                                    troy
-                                </text>
-                                <circle cx="67" cy="15" r="7.5" fill="#00A3E0" />
-                                <path d="M64 15l2.2 2.2 4.5-4.5" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                        </span>
-
-                        {/* 256-Bit SSL Badge */}
                         <span
                             title="256-Bit SSL Güvenli Bağlantı"
                             style={{

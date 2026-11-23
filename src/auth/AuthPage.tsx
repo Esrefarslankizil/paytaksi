@@ -1140,14 +1140,14 @@ export default function AuthPage({
                         >
                             {docModal === "terms" ? (
                                 <>
-                                    <div style={{ fontWeight: 700, color: C.ink, fontSize: 15 }}>1. Taraflar, Konu ve Yasal Dayanak</div>
+                                    <div style={{ fontWeight: 700, color: C.ink, fontSize: 15 }}>1. Taraflar ve Konu</div>
                                     <p style={{ margin: 0 }}>
-                                        İşbu Kullanım Koşulları ve Kullanıcı Sözleşmesi (“Sözleşme”), <b>www.paytaksi.com.tr</b> üzerinden faaliyet gösteren <b>PayTaksi Dijital Ulaşım Platformu</b> (“PayTaksi”) ile Platform’a üye olan veya hizmetlerden yararlanan gerçek kişi (“Kullanıcı” / “Yolcu”) arasında; <b>6098 sayılı Türk Borçlar Kanunu</b>, <b>6563 sayılı Elektronik Ticaretin Düzenlenmesi Hakkında Kanun</b>, <b>6502 sayılı Tüketicinin Korunması Hakkında Kanun</b>, <b>5651 sayılı Kanun</b> ve <b>6698 sayılı KVKK</b> hükümlerine uygun olarak elektronik ortamda yürürlüğe girmiştir.
+                                        İşbu Kullanım Koşulları ve Kullanıcı Sözleşmesi (“Sözleşme”), <b>www.paytaksi.com.tr</b> (“PayTaksi”) ile Site’ye üye olan veya hizmetlerden yararlanan gerçek kişi (“Kullanıcı” / “Yolcu”) arasında; <b>6098 sayılı Türk Borçlar Kanunu</b>, <b>6502 sayılı Tüketicinin Korunması Hakkında Kanun</b> ve <b>6698 sayılı KVKK</b> hükümlerine uygun olarak elektronik ortamda yürürlüğe girmiştir.
                                     </p>
 
-                                    <div style={{ fontWeight: 700, color: C.ink, fontSize: 15, marginTop: 4 }}>2. PayTaksi’nin Hukuki Statüsü (Aracı Hizmet Sağlayıcı)</div>
+                                    <div style={{ fontWeight: 700, color: C.ink, fontSize: 15, marginTop: 4 }}>2. Hizmet Kapsamı</div>
                                     <p style={{ margin: 0 }}>
-                                        PayTaksi, <b>6563 sayılı Kanun</b> kapsamında “Aracı Hizmet Sağlayıcı” statüsündedir. PayTaksi doğrudan taşımacılık yapmamakta; taksi ihtiyacı bulunan Yolcu ile Elazığ il sınırları içinde resmi ticari plakalı (`23 T`) bağımsız Taksi Sürücüsünü dijital ortamda eşleştiren teknolojik altyapıyı sunmaktadır.
+                                        PayTaksi, Elazığ il sınırları içerisinde taksi ihtiyacı bulunan Yolcu ile resmi ticari plakalı (`23 T`) taksi sürücülerini dijital ortamda buluşturur. Taşıma hizmeti doğrudan ilgili resmi ticari taksi sürücüsü tarafından sunulur.
                                     </p>
 
                                     <div style={{ fontWeight: 700, color: C.ink, fontSize: 15, marginTop: 4 }}>3. Üyelik ve Çağrı Kuralları</div>
@@ -1167,9 +1167,9 @@ export default function AuthPage({
                                 </>
                             ) : (
                                 <>
-                                    <div style={{ fontWeight: 700, color: C.ink, fontSize: 15 }}>1. Veri Sorumlusunun Kimliği</div>
+                                    <div style={{ fontWeight: 700, color: C.ink, fontSize: 15 }}>1. Veri Sorumlusu</div>
                                     <p style={{ margin: 0 }}>
-                                        <b>6698 sayılı Kişisel Verilerin Korunması Kanunu’nun (“KVKK”) 10. maddesi</b> ve ilgili Tebliğ uyarınca kişisel verileriniz, veri sorumlusu sıfatıyla <b>PayTaksi Dijital Ulaşım Platformu – Eşref KIZILARSLAN</b> (www.paytaksi.com.tr · Merkez / Elazığ · Tel: 0501 136 68 15) tarafından aşağıda açıklanan kapsamda işlenmektedir.
+                                        <b>6698 sayılı Kişisel Verilerin Korunması Kanunu’nun (“KVKK”) 10. maddesi</b> uyarınca kişisel verileriniz, <b>PayTaksi – Eşref KIZILARSLAN</b> (www.paytaksi.com.tr · Merkez / Elazığ · Tel: 0501 136 68 15) tarafından aşağıda açıklanan kapsamda işlenmektedir.
                                     </p>
 
                                     <div style={{ fontWeight: 700, color: C.ink, fontSize: 15, marginTop: 4 }}>2. İşlenen Kişisel Veriler ve Hukuki Sebepler (KVKK m. 5)</div>
