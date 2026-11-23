@@ -13,7 +13,7 @@ const C = {
 const SANS = "'Inter Tight', 'Inter', system-ui, sans-serif"
 const MONO = "'JetBrains Mono', ui-monospace, 'SF Mono', monospace"
 
-type CatKey = "all" | "merkez" | "havalimani" | "hastane" | "avm" | "kampus" | "turistik" | "ilceler"
+type CatKey = "all" | "merkez" | "havalimani" | "hastane" | "avm" | "kampus" | "turistik" | "ilceler" | "yakinda"
 
 const CATEGORIES: { key: CatKey; label: string; path: string }[] = [
     {
@@ -55,6 +55,11 @@ const CATEGORIES: { key: CatKey; label: string; path: string }[] = [
         key: "ilceler",
         label: "İlçeler",
         path: "M4 20V10l5-4 5 4v10M14 20v-7h6v7M2 20h20M9 20v-4",
+    },
+    {
+        key: "yakinda",
+        label: "Yakında",
+        path: "M12 22s-7-5.6-7-11a7 7 0 1 1 14 0c0 5.4-7 11-7 11zM12 8v4l2.5 1.5",
     },
 ]
 
@@ -152,12 +157,83 @@ const SERVICE_AREAS: AreaItem[] = [
     },
 ]
 
+const UPCOMING_AREAS: AreaItem[] = [
+    {
+        slug: "malatya",
+        title: "Malatya Merkez · Battalgazi & Yeşilyurt",
+        district: "Çevre İl · Hazırlanıyor",
+        price: "Yakında",
+        eta: "Yakında",
+        img: "/places/malatya.jpg",
+        cats: ["yakinda"],
+    },
+    {
+        slug: "bingol",
+        title: "Bingöl Merkez · Genç & Solhan",
+        district: "Çevre İl · Hazırlanıyor",
+        price: "Yakında",
+        eta: "Yakında",
+        img: "/places/bingol.jpg",
+        cats: ["yakinda"],
+    },
+    {
+        slug: "tunceli",
+        title: "Tunceli Merkez · Pertek & Munzur",
+        district: "Çevre İl · Hazırlanıyor",
+        price: "Yakında",
+        eta: "Yakında",
+        img: "/places/tunceli.jpg",
+        cats: ["yakinda"],
+    },
+    {
+        slug: "diyarbakir",
+        title: "Diyarbakır · Kayapınar, Yenişehir & Sur",
+        district: "Çevre İl · Hazırlanıyor",
+        price: "Yakında",
+        eta: "Yakında",
+        img: "/places/diyarbakir.jpg",
+        cats: ["yakinda"],
+    },
+    {
+        slug: "erzincan",
+        title: "Erzincan Merkez · Havalimanı & Kemaliye",
+        district: "Çevre İl · Planlanıyor",
+        price: "Yakında",
+        eta: "Yakında",
+        img: "/places/erzincan.jpg",
+        cats: ["yakinda"],
+    },
+    {
+        slug: "sanliurfa",
+        title: "Şanlıurfa · Haliliye, Karaköprü & Eyyübiye",
+        district: "Bölge İli · Planlanıyor",
+        price: "Yakında",
+        eta: "Yakında",
+        img: "/places/sanliurfa.jpg",
+        cats: ["yakinda"],
+    },
+    {
+        slug: "adiyaman",
+        title: "Adıyaman Merkez · Kahta & Gölbaşı",
+        district: "Çevre İl · Planlanıyor",
+        price: "Yakında",
+        eta: "Yakında",
+        img: "/places/adiyaman.jpg",
+        cats: ["yakinda"],
+    },
+]
+
 export function ServiceAreasSection() {
     const [activeCat, setActiveCat] = useState<CatKey>("all")
     const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({})
     const [indicator, setIndicator] = useState({ left: 0, width: 58 })
 
-    const filtered = activeCat === "all" ? SERVICE_AREAS : SERVICE_AREAS.filter((item) => item.cats.includes(activeCat))
+    const filtered =
+        activeCat === "all"
+            ? SERVICE_AREAS
+            : activeCat === "yakinda"
+              ? UPCOMING_AREAS
+              : SERVICE_AREAS.filter((item) => item.cats.includes(activeCat))
 
     useLayoutEffect(() => {
         const updateInd = () => {
@@ -394,38 +470,132 @@ export function ServiceAreasSection() {
                         }}
                     >
                         <span>
-                            {activeCatLabel} kategorisindeki tüm bölgeler bunlar.
+                            {activeCat === "yakinda"
+                                ? "Yakında açılacak çevre illerimiz bunlar."
+                                : `${activeCatLabel} kategorisindeki tüm bölgeler bunlar.`}
                             <br />
-                            <span style={{ color: C.ink, fontWeight: 600 }}>Tüm bölgeleri gör →</span>
+                            <span style={{ color: C.ink, fontWeight: 600 }}>Aktif Elazığ bölgelerini gör →</span>
                         </span>
                     </button>
                 ) : (
-                    <a
-                        href="/"
+                    <button
+                        type="button"
+                        onClick={() => setActiveCat("yakinda")}
                         style={{
                             boxSizing: "border-box",
                             overflow: "hidden",
                             alignSelf: "start",
                             borderRadius: 16,
                             border: "1px dashed rgba(16, 17, 20, 0.2)",
+                            background: "transparent",
                             aspectRatio: "4 / 3",
                             display: "grid",
                             placeItems: "center",
                             textAlign: "center",
                             color: C.ink2,
+                            fontFamily: SANS,
                             fontSize: 13.5,
-                            textDecoration: "none",
+                            cursor: "pointer",
                             padding: 16,
                         }}
                     >
                         <span>
-                            Elazığ dışındaki şehirler çok yakında.
+                            Malatya, Bingöl, Tunceli ve 4 il daha sırada.
                             <br />
-                            <span style={{ color: C.ink, fontWeight: 600 }}>Hemen taksi çağır →</span>
+                            <span style={{ color: C.ink, fontWeight: 600 }}>Yakında açılacak illeri gör →</span>
                         </span>
-                    </a>
+                    </button>
                 )}
             </div>
+
+            {/* Yakında Hizmet Vereceğimiz Çevre İller Şeridi (Tümü sekmesindeyken altta da görünür) */}
+            {activeCat !== "yakinda" && (
+                <div style={{ marginTop: 48, paddingTop: 28, borderTop: `1px solid ${C.line}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 18, gap: 12, flexWrap: "wrap" }}>
+                        <h3 style={{ margin: 0, fontSize: "clamp(20px, 2.4vw, 24px)", fontWeight: 600, letterSpacing: "-0.03em" }}>
+                            Yakında hizmet vereceğimiz çevre iller
+                        </h3>
+                        <span style={{ fontFamily: MONO, fontSize: 12, color: C.ink2 }}>
+                            {UPCOMING_AREAS.length} il · Hazırlık aşamasında
+                        </span>
+                    </div>
+                    <div className="pt-sa-grid" style={{ marginTop: 0 }}>
+                        {UPCOMING_AREAS.map((item, idx) => (
+                            <div
+                                key={item.slug}
+                                className="pt-sa-card"
+                                style={{
+                                    color: C.ink,
+                                    animation: `0.7s cubic-bezier(0.2, 0.8, 0.2, 1) ${idx * 60}ms 1 normal both running ssCatIn`,
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        borderRadius: 16,
+                                        overflow: "hidden",
+                                        aspectRatio: "4 / 3",
+                                        background: "#E8E5DD",
+                                        position: "relative",
+                                    }}
+                                >
+                                    <img
+                                        src={item.img}
+                                        alt={item.title}
+                                        loading="lazy"
+                                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", filter: "saturate(0.88)" }}
+                                    />
+                                    <span
+                                        style={{
+                                            position: "absolute",
+                                            top: 10,
+                                            left: 10,
+                                            padding: "4px 10px",
+                                            borderRadius: 999,
+                                            background: "rgba(16, 17, 20, 0.78)",
+                                            backdropFilter: "blur(8px)",
+                                            color: "#fff",
+                                            fontFamily: MONO,
+                                            fontSize: 11,
+                                            fontWeight: 600,
+                                        }}
+                                    >
+                                        Yakında
+                                    </span>
+                                </div>
+                                <div
+                                    style={{
+                                        fontSize: 14,
+                                        fontWeight: 600,
+                                        letterSpacing: "-0.015em",
+                                        marginTop: 9,
+                                        whiteSpace: "nowrap",
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                    }}
+                                >
+                                    {item.title}
+                                </div>
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        gap: 8,
+                                        fontSize: 13,
+                                        color: C.ink2,
+                                        marginTop: 2,
+                                        whiteSpace: "nowrap",
+                                        height: 18,
+                                        overflow: "hidden",
+                                    }}
+                                >
+                                    <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{item.district}</span>
+                                    <span style={{ fontFamily: MONO, flex: "0 0 auto" }}>{item.price}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </section>
     )
 }
