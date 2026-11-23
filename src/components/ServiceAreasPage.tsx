@@ -387,64 +387,102 @@ export function ServiceAreasSection() {
 
             {/* 3 Sütunlu Kart Izgarası */}
             <div className="pt-sa-grid" key={activeCat}>
-                {filtered.map((item, idx) => (
-                    <a
-                        key={item.slug}
-                        href="/"
-                        className="pt-sa-card"
-                        style={{
-                            color: C.ink,
-                            textDecoration: "none",
-                            animation: `0.7s cubic-bezier(0.2, 0.8, 0.2, 1) ${idx * 70}ms 1 normal both running ssCatIn`,
-                        }}
-                    >
+                {filtered.map((item, idx) =>
+                    activeCat === "yakinda" ? (
                         <div
+                            key={item.slug}
                             style={{
+                                padding: "18px 20px",
                                 borderRadius: 16,
-                                overflow: "hidden",
-                                aspectRatio: "4 / 3",
-                                background: "#E8E5DD",
-                                position: "relative",
-                            }}
-                        >
-                            <img
-                                src={item.img}
-                                alt={item.title}
-                                loading="lazy"
-                                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                            />
-                        </div>
-                        <div
-                            style={{
-                                fontSize: 14,
-                                fontWeight: 600,
-                                letterSpacing: "-0.015em",
-                                marginTop: 9,
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                            }}
-                        >
-                            {item.title}
-                        </div>
-                        <div
-                            style={{
+                                background: "rgba(255, 255, 255, 0.72)",
+                                border: `1px solid ${C.line}`,
                                 display: "flex",
+                                flexDirection: "column",
                                 justifyContent: "space-between",
                                 gap: 8,
-                                fontSize: 13,
-                                color: C.ink2,
-                                marginTop: 2,
-                                whiteSpace: "nowrap",
-                                height: 18,
-                                overflow: "hidden",
+                                animation: `0.6s cubic-bezier(0.2, 0.8, 0.2, 1) ${idx * 50}ms 1 normal both running ssCatIn`,
                             }}
                         >
-                            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{item.district}</span>
-                            <span style={{ fontFamily: MONO, flex: "0 0 auto" }}>{item.price}</span>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                                <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: "-0.02em", color: C.ink }}>
+                                    {item.title}
+                                </span>
+                                <span
+                                    style={{
+                                        fontFamily: MONO,
+                                        fontSize: 11,
+                                        fontWeight: 600,
+                                        padding: "3px 9px",
+                                        borderRadius: 999,
+                                        background: "rgba(16, 17, 20, 0.06)",
+                                        color: C.ink2,
+                                        flexShrink: 0,
+                                    }}
+                                >
+                                    Yakında
+                                </span>
+                            </div>
+                            <div style={{ fontSize: 13, color: C.ink2 }}>{item.district}</div>
                         </div>
-                    </a>
-                ))}
+                    ) : (
+                        <a
+                            key={item.slug}
+                            href="/"
+                            className="pt-sa-card"
+                            style={{
+                                color: C.ink,
+                                textDecoration: "none",
+                                animation: `0.7s cubic-bezier(0.2, 0.8, 0.2, 1) ${idx * 70}ms 1 normal both running ssCatIn`,
+                            }}
+                        >
+                            <div
+                                style={{
+                                    borderRadius: 16,
+                                    overflow: "hidden",
+                                    aspectRatio: "4 / 3",
+                                    background: "#E8E5DD",
+                                    position: "relative",
+                                }}
+                            >
+                                <img
+                                    src={item.img}
+                                    alt={item.title}
+                                    loading="lazy"
+                                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                                />
+                            </div>
+                            <div
+                                style={{
+                                    fontSize: 14,
+                                    fontWeight: 600,
+                                    letterSpacing: "-0.015em",
+                                    marginTop: 9,
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                }}
+                            >
+                                {item.title}
+                            </div>
+                            <div
+                                style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    gap: 8,
+                                    fontSize: 13,
+                                    color: C.ink2,
+                                    marginTop: 2,
+                                    whiteSpace: "nowrap",
+                                    height: 18,
+                                    overflow: "hidden",
+                                }}
+                            >
+                                <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{item.district}</span>
+                                <span style={{ fontFamily: MONO, flex: "0 0 auto" }}>{item.price}</span>
+                            </div>
+                        </a>
+                    )
+                )}
 
                 {/* Son Kesikli Çizgili Kart */}
                 {activeCat !== "all" ? (
@@ -508,89 +546,50 @@ export function ServiceAreasSection() {
                 )}
             </div>
 
-            {/* Yakında Hizmet Vereceğimiz Çevre İller Şeridi (Tümü sekmesindeyken altta da görünür) */}
+            {/* Yakında Hizmet Vereceğimiz Çevre İller Şeridi (Resimsiz sade kartlar) */}
             {activeCat !== "yakinda" && (
-                <div style={{ marginTop: 48, paddingTop: 28, borderTop: `1px solid ${C.line}` }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 18, gap: 12, flexWrap: "wrap" }}>
-                        <h3 style={{ margin: 0, fontSize: "clamp(20px, 2.4vw, 24px)", fontWeight: 600, letterSpacing: "-0.03em" }}>
+                <div style={{ marginTop: 44, paddingTop: 26, borderTop: `1px solid ${C.line}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
+                        <h3 style={{ margin: 0, fontSize: "clamp(19px, 2.2vw, 22px)", fontWeight: 600, letterSpacing: "-0.03em" }}>
                             Yakında hizmet vereceğimiz çevre iller
                         </h3>
                         <span style={{ fontFamily: MONO, fontSize: 12, color: C.ink2 }}>
                             {UPCOMING_AREAS.length} il · Hazırlık aşamasında
                         </span>
                     </div>
-                    <div className="pt-sa-grid" style={{ marginTop: 0 }}>
-                        {UPCOMING_AREAS.map((item, idx) => (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                        {UPCOMING_AREAS.map((item) => (
                             <div
                                 key={item.slug}
-                                className="pt-sa-card"
                                 style={{
-                                    color: C.ink,
-                                    animation: `0.7s cubic-bezier(0.2, 0.8, 0.2, 1) ${idx * 60}ms 1 normal both running ssCatIn`,
+                                    padding: "11px 15px",
+                                    borderRadius: 14,
+                                    background: "rgba(255, 255, 255, 0.72)",
+                                    border: `1px solid ${C.line}`,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 10,
                                 }}
                             >
-                                <div
-                                    style={{
-                                        borderRadius: 16,
-                                        overflow: "hidden",
-                                        aspectRatio: "4 / 3",
-                                        background: "#E8E5DD",
-                                        position: "relative",
-                                    }}
-                                >
-                                    <img
-                                        src={item.img}
-                                        alt={item.title}
-                                        loading="lazy"
-                                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", filter: "saturate(0.88)" }}
-                                    />
-                                    <span
-                                        style={{
-                                            position: "absolute",
-                                            top: 10,
-                                            left: 10,
-                                            padding: "4px 10px",
-                                            borderRadius: 999,
-                                            background: "rgba(16, 17, 20, 0.78)",
-                                            backdropFilter: "blur(8px)",
-                                            color: "#fff",
-                                            fontFamily: MONO,
-                                            fontSize: 11,
-                                            fontWeight: 600,
-                                        }}
-                                    >
-                                        Yakında
-                                    </span>
+                                <div>
+                                    <div style={{ fontSize: 13.5, fontWeight: 600, color: C.ink, letterSpacing: "-0.015em" }}>
+                                        {item.title}
+                                    </div>
+                                    <div style={{ fontSize: 11.5, color: C.ink2, marginTop: 1 }}>{item.district}</div>
                                 </div>
-                                <div
+                                <span
                                     style={{
-                                        fontSize: 14,
+                                        fontFamily: MONO,
+                                        fontSize: 10.5,
                                         fontWeight: 600,
-                                        letterSpacing: "-0.015em",
-                                        marginTop: 9,
-                                        whiteSpace: "nowrap",
-                                        overflow: "hidden",
-                                        textOverflow: "ellipsis",
-                                    }}
-                                >
-                                    {item.title}
-                                </div>
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        gap: 8,
-                                        fontSize: 13,
+                                        padding: "3px 8px",
+                                        borderRadius: 999,
+                                        background: "rgba(16, 17, 20, 0.06)",
                                         color: C.ink2,
-                                        marginTop: 2,
-                                        whiteSpace: "nowrap",
-                                        height: 18,
-                                        overflow: "hidden",
                                     }}
                                 >
-                                    <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{item.district}</span>
-                                    <span style={{ fontFamily: MONO, flex: "0 0 auto" }}>{item.price}</span>
-                                </div>
+                                    Yakında
+                                </span>
                             </div>
                         ))}
                     </div>
