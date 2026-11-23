@@ -63,7 +63,17 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     if (useMySql)
+    {
         await db.Database.EnsureCreatedAsync();
+        // EnsureCreated mevcut veritabanına sonradan eklenen tabloları açmaz; AnalyticsEvents tablosunu garanti altına al
+        await db.Database.ExecuteSqlRawAsync(@"
+            CREATE TABLE IF NOT EXISTS `AnalyticsEvents` (
+                `Id` int NOT NULL AUTO_INCREMENT,
+                `EventType` longtext CHARACTER SET utf8mb4 NOT NULL,
+                `CreatedAt` datetime(6) NOT NULL,
+                PRIMARY KEY (`Id`)
+            ) CHARACTER SET=utf8mb4;");
+    }
     else
         await db.Database.MigrateAsync();
 

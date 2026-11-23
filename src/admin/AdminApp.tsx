@@ -85,7 +85,7 @@ function toFunnelSteps(p: DailyPoint) {
         { label: "Nereden / Nereye Seçimi", count: p.locationSelect, pct: pct(p.locationSelect) },
         { label: "Taksi Çağır Butonu", count: p.callClick, pct: pct(p.callClick) },
         { label: "Ödeme Ekranı Açıldı", count: p.paymentOpen, pct: pct(p.paymentOpen) },
-        { label: "Giriş Yap / Cüzdan", count: p.walletClick, pct: pct(p.walletClick) },
+        { label: "Online Ödeme (%15)", count: p.walletClick, pct: pct(p.walletClick) },
         { label: "Nakitle Devam Et", count: p.cashClick, pct: pct(p.cashClick) },
         { label: "Çağrı Tamamlandı", count: p.completed, pct: pct(p.completed) },
     ]
@@ -418,7 +418,7 @@ function DailyCalls({
                         height: BAR_H,
                         display: "flex",
                         alignItems: "flex-end",
-                        gap: 2,
+                        gap: 3,
                         touchAction: "none",
                         cursor: "grab",
                         userSelect: "none",
@@ -430,7 +430,7 @@ function DailyCalls({
                             style={{
                                 flex: 1,
                                 height: barPx(v),
-                                borderRadius: 3,
+                                borderRadius: "6px 6px 3px 3px",
                                 background: i === sel ? C.accent : "rgba(16,17,20,0.16)",
                                 transition: "background .2s, height .35s ease",
                             }}

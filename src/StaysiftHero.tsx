@@ -934,8 +934,24 @@ export default function StaysiftHero(props: HeroProps) {
         }).catch(() => {})
     }
 
+    const trackLocationOnce = () => {
+        try {
+            if (sessionStorage.getItem("pt_loc_tracked")) return
+            sessionStorage.setItem("pt_loc_tracked", "1")
+        } catch {}
+        trackEvent("location_select")
+    }
+
     useEffect(() => {
-        trackEvent("page_view")
+        // Sadece ana sayfada (/) ve sekme/oturum başına 1 kez page_view gönder (StrictMode ve F5 şişmesini önler)
+        if (window.location.pathname === "/") {
+            let alreadyTracked = false
+            try {
+                if (sessionStorage.getItem("pt_pv_tracked")) alreadyTracked = true
+                else sessionStorage.setItem("pt_pv_tracked", "1")
+            } catch {}
+            if (!alreadyTracked) trackEvent("page_view")
+        }
         const token = localStorage.getItem("paytaksi_jwt_token")
         if (!token) return
         if (token.startsWith("google_oauth_")) {
@@ -1009,6 +1025,7 @@ export default function StaysiftHero(props: HeroProps) {
         const inp = uiRef.current.fromInput
         if (inp && label) inp.value = label
         fromTouchedRef.current = true
+        trackLocationOnce()
         setSearchWarn(null)
         setSug([])
     }
@@ -1026,6 +1043,7 @@ export default function StaysiftHero(props: HeroProps) {
         const inp = uiRef.current.whereInput
         if (inp && label) inp.value = label
         whereTouchedRef.current = true
+        trackLocationOnce()
         setSearchWarn(null)
         setSug([])
     }
@@ -1486,6 +1504,8 @@ export default function StaysiftHero(props: HeroProps) {
                 })
             }
 
+            const otherCityQuery = /\b(istanbul|ankara|izmir|malatya|diyarbakır|diyarbakir|tunceli|bingöl|bingol|erzurum|erzincan|adana|antalya|bursa|konya|gaziantep|şanlıurfa|sanliurfa|kayseri|mersin|eskişehir|eskisehir|trabzon|samsun|van|hatay|sivas|kahramanmaraş|kahramanmaras|adıyaman|adiyaman|mardin|batman|muğla|mugla|aydın|aydin|denizli|sakarya|kocaeli|tekirdağ|tekirdag|manisa|balıkesir|balikesir)\b/i.test(q)
+
             let cleanQ = q
                 .replace(/\belaz[ıiâ]ğ\b/gi, "")
                 .replace(/\bhavaliman[ıi]\b/gi, "havaalanı")
@@ -1495,14 +1515,18 @@ export default function StaysiftHero(props: HeroProps) {
             // 1. Yandex Maps JS API (ymaps.geocode)
             if ((window as any).ymaps?.geocode) {
                 try {
-                    const res: any = await (window as any).ymaps.geocode("Elazığ " + cleanQ, {
-                        boundedBy: [
-                            [38.4, 38.8],
-                            [38.95, 39.65],
-                        ],
-                        strictBounds: true,
-                        results: 4,
-                    })
+                    const ymOpts = otherCityQuery
+                        ? { results: 4 }
+                        : {
+                              boundedBy: [
+                                  [38.4, 38.8],
+                                  [38.95, 39.65],
+                              ],
+                              strictBounds: false,
+                              results: 4,
+                          }
+                    const ymQuery = otherCityQuery ? q : "Elazığ " + cleanQ
+                    const res: any = await (window as any).ymaps.geocode(ymQuery, ymOpts)
                     const geoObjects = res?.geoObjects
                     if (geoObjects && typeof geoObjects.each === "function") {
                         geoObjects.each((obj: any) => {
@@ -1512,7 +1536,7 @@ export default function StaysiftHero(props: HeroProps) {
                             if (Array.isArray(coords) && coords.length === 2 && name) {
                                 addUnique(
                                     String(name),
-                                    String(desc || "Elazığ").replace(/^Türkiye,\s*/i, ""),
+                                    String(desc || "Türkiye").replace(/^Türkiye,\s*/i, ""),
                                     Number(coords[0]),
                                     Number(coords[1]),
                                     "ym"
@@ -1523,10 +1547,12 @@ export default function StaysiftHero(props: HeroProps) {
                 } catch {}
             }
 
-            // 2. Yedek arama (Eğer Yandex anahtarı henüz aktifleşmediyse boş kalmaması için)
+            // 2. Nominatim: Önce Elazığ içi (başka şehir yazılmadıysa), başka şehir yazıldıysa Türkiye geneli
             if (remoteItems.length < 3) {
                 try {
-                    const osmUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cleanQ)}&viewbox=38.60,39.00,39.70,38.35&bounded=1&limit=6&accept-language=tr`
+                    const osmUrl = otherCityQuery
+                        ? `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=tr&limit=5&accept-language=tr`
+                        : `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cleanQ)}&viewbox=38.60,39.00,39.70,38.35&bounded=1&limit=6&accept-language=tr`
                     const osmRes = await fetch(osmUrl)
                     if (osmRes.ok) {
                         const osmList = await osmRes.json()
@@ -1536,17 +1562,19 @@ export default function StaysiftHero(props: HeroProps) {
                             const sub = parts
                                 .filter((p) => p && p !== title && !/^(Türkiye|Doğu Anadolu Bölgesi|\d{5})$/i.test(p))
                                 .slice(0, 2)
-                                .join(" · ") || "Elazığ"
+                                .join(" · ") || "Türkiye"
                             addUnique(title, sub, Number(it.lat), Number(it.lon), "osm")
                         })
                     }
                 } catch {}
             }
 
-            // 2. Photon Canlı Arama API (Elazığ bbox kilitli, sadece cleanQ ile)
+            // 3. Photon Canlı Arama API
             if (remoteItems.length < 3) {
                 try {
-                    const pUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(cleanQ)}&lat=38.6748&lon=39.2225&bbox=38.60,38.35,39.70,39.00&limit=8`
+                    const pUrl = otherCityQuery
+                        ? `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=5`
+                        : `https://photon.komoot.io/api/?q=${encodeURIComponent(cleanQ)}&lat=38.6748&lon=39.2225&bbox=38.60,38.35,39.70,39.00&limit=8`
                     const pRes = await fetch(pUrl)
                     if (pRes.ok) {
                         const pData = await pRes.json()
@@ -1559,10 +1587,30 @@ export default function StaysiftHero(props: HeroProps) {
                             if (!title) return
                             // Kullanıcı "yolu" yazmadıysa şehirlerarası çevre yollarını filtrele
                             if (!/yol/i.test(cleanQ) && /^El[aâ]z[ıi]ğ-.*yolu$/i.test(title)) return
-                            const subParts = [props.district, props.street, props.city || "Elazığ"].filter(
+                            const subParts = [props.district, props.street, props.city || props.state || "Türkiye"].filter(
                                 (x) => x && x !== title
                             )
-                            addUnique(title, subParts.slice(0, 2).join(" · ") || "Elazığ", lat, lon, "ph")
+                            addUnique(title, subParts.slice(0, 2).join(" · ") || "Türkiye", lat, lon, "ph")
+                        })
+                    }
+                } catch {}
+            }
+
+            // 4. Elazığ içinde hiç eşleşme bulunmadıysa Türkiye genelinde ara (ör. "Taksim", "Kızılay", "Malatya Park")
+            if (remoteItems.length === 0 && !otherCityQuery) {
+                try {
+                    const trUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=tr&limit=4&accept-language=tr`
+                    const trRes = await fetch(trUrl)
+                    if (trRes.ok) {
+                        const trList = await trRes.json()
+                        ;(trList || []).forEach((it: any) => {
+                            const parts = String(it.display_name || "").split(",").map((s) => s.trim())
+                            const title = it.name || parts[0] || q
+                            const sub = parts
+                                .filter((p) => p && p !== title && !/^(Türkiye|\d{5})$/i.test(p))
+                                .slice(0, 2)
+                                .join(" · ") || "Türkiye"
+                            addUnique(title, sub, Number(it.lat), Number(it.lon), "tr")
                         })
                     }
                 } catch {}
