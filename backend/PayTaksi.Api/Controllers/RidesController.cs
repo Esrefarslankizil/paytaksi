@@ -55,6 +55,19 @@ public class RidesController : ControllerBase
     [HttpPost("request")]
     public async Task<IActionResult> RequestRide(CreateRideDto dto)
     {
+        if (dto.PickupLat.HasValue && dto.PickupLng.HasValue)
+        {
+            var inElazig = dto.PickupLat.Value >= 38.20 && dto.PickupLat.Value <= 39.20 &&
+                           dto.PickupLng.Value >= 38.45 && dto.PickupLng.Value <= 40.30;
+            if (!inElazig)
+            {
+                return BadRequest(new
+                {
+                    error = "Şu an yalnızca Elazığ il sınırları içerisinde hizmet veriyoruz. Şehrinizde henüz hizmet veremiyoruz, ancak en yakın zamanda hizmet vermeye başlayacağız!"
+                });
+            }
+        }
+
         var now = DateTime.Now;
         var drivers = await _db.Drivers.ToListAsync();
         var activeDriver = drivers

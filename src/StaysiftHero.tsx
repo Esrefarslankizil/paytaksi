@@ -898,11 +898,19 @@ export default function StaysiftHero(props: HeroProps) {
     const [mapPickerField, setMapPickerField] = React.useState<"from" | "to">("from")
     const [mapFromLabel, setMapFromLabel] = React.useState("")
     const [mapToLabel, setMapToLabel] = React.useState("")
+    const [outOfServiceMsg, setOutOfServiceMsg] = React.useState<string | null>(null)
     const mapPickerFieldRef = useRef<"from" | "to">("from")
     const mapDivRef = useRef<HTMLDivElement>(null)
     const leafletRef = useRef<any>(null)
     const modalOpenRef = useRef(false)
-    modalOpenRef.current = Boolean(mapPickerOpen || callModalOpen || tariffModalOpen || partnerModalOpen || searchWarn)
+    modalOpenRef.current = Boolean(mapPickerOpen || callModalOpen || tariffModalOpen || partnerModalOpen || searchWarn || outOfServiceMsg)
+
+    // Elazığ il sınırları (merkez ve tüm ilçeler) koordinat kontrolü
+    const isCoordInElazig = (lat: number, lng: number) =>
+        lat >= 38.20 && lat <= 39.20 && lng >= 38.45 && lng <= 40.30
+
+    const OUT_OF_ELAZIG_MSG =
+        "Şu an yalnızca Elazığ il sınırları içerisinde hizmet veriyoruz. Şehrinizde henüz hizmet veremiyoruz, ancak en yakın zamanda hizmet vermeye başlayacağız!"
     const fromTouchedRef = useRef(false)
     const whereTouchedRef = useRef(false)
     const menuWrapRef = useRef<HTMLDivElement>(null)
@@ -1335,8 +1343,12 @@ export default function StaysiftHero(props: HeroProps) {
                             navigator.geolocation.getCurrentPosition(
                                 (pos) => {
                                     const { latitude, longitude } = pos.coords
-                                    const inElazig = latitude > 38.25 && latitude < 39.15 && longitude > 38.5 && longitude < 40.2
-                                    const c: [number, number] = inElazig ? [latitude, longitude] : [38.6748, 39.2225]
+                                    if (!isCoordInElazig(latitude, longitude)) {
+                                        setMapPickerOpen(false)
+                                        setOutOfServiceMsg(OUT_OF_ELAZIG_MSG)
+                                        return
+                                    }
+                                    const c: [number, number] = [latitude, longitude]
                                     map.setCenter(c, 16, { duration: 220 })
                                     applyCoord(mapPickerFieldRef.current, c[0], c[1])
                                 },
@@ -1348,20 +1360,22 @@ export default function StaysiftHero(props: HeroProps) {
                     applyCoord,
                 }
 
-                // Sadece gerçek GPS izni alındığında haritayı kullanıcının konumuna kaydır ve yer adı biliniyorsa göster
+                // Sadece gerçek GPS izni alındığında haritayı kullanıcının konumuna kaydır; Elazığ dışındaysa hizmet dışı uyarısı ver
                 if (mapPickerFieldRef.current === "from" && navigator.geolocation) {
                     navigator.geolocation.getCurrentPosition(
                         async (pos) => {
                             if (cancelled) return
                             const { latitude, longitude } = pos.coords
-                            const inElazig = latitude > 38.25 && latitude < 39.15 && longitude > 38.5 && longitude < 40.2
-                            if (inElazig) {
-                                map.setCenter([latitude, longitude], 16)
-                                fromPlacemark.geometry.setCoordinates([latitude, longitude])
-                                setFromCoord([latitude, longitude])
-                                const addr = await resolveAddress(latitude, longitude)
-                                if (!cancelled) setMapFromLabel(addr || "Mevcut Konum")
+                            if (!isCoordInElazig(latitude, longitude)) {
+                                setMapPickerOpen(false)
+                                setOutOfServiceMsg(OUT_OF_ELAZIG_MSG)
+                                return
                             }
+                            map.setCenter([latitude, longitude], 16)
+                            fromPlacemark.geometry.setCoordinates([latitude, longitude])
+                            setFromCoord([latitude, longitude])
+                            const addr = await resolveAddress(latitude, longitude)
+                            if (!cancelled) setMapFromLabel(addr || "Mevcut Konum")
                         },
                         () => {},
                         { enableHighAccuracy: true, timeout: 5000 }
@@ -1643,6 +1657,18 @@ export default function StaysiftHero(props: HeroProps) {
         if (!hasFrom || !hasWhere) {
             setSearchWarn("Taksi çağırabilmek için lütfen önce Nereden ve Nereye bilgilerini doldurun.")
             activate()
+            return
+        }
+        // Elazığ dışı koordinat veya başka şehir ismi kontrolü
+        const otherCitiesRegex = /\b(istanbul|ankara|izmir|malatya|diyarbakır|diyarbakir|tunceli|bingöl|bingol|erzurum|erzincan|adana|antalya|bursa|konya|gaziantep|şanlıurfa|sanliurfa|kayseri|mersin|eskişehir|eskisehir|trabzon|samsun|van|hatay|sivas|kahramanmaraş|kahramanmaras|adıyaman|adiyaman|mardin|batman|muğla|mugla|aydın|aydin|denizli|sakarya|kocaeli|tekirdağ|tekirdag|manisa|balıkesir|balikesir)\b/i
+        const combinedText = `${fromVal} ${whereVal}`
+        if (
+            !isCoordInElazig(fromCoord[0], fromCoord[1]) ||
+            !isCoordInElazig(toCoord[0], toCoord[1]) ||
+            (otherCitiesRegex.test(combinedText) && !/elazığ|elazig/i.test(combinedText))
+        ) {
+            setSearchWarn(null)
+            setOutOfServiceMsg(OUT_OF_ELAZIG_MSG)
             return
         }
         setSearchWarn(null)
@@ -4408,6 +4434,61 @@ export default function StaysiftHero(props: HeroProps) {
                     )}
                 </div>
             </a>
+
+            {/* Elazığ dışı şehir uyarı modalı */}
+            {outOfServiceMsg && (
+                <div
+                    className="pt-overlay"
+                    role="alertdialog"
+                    aria-modal="true"
+                    aria-label="Hizmet bölgesi dışında"
+                    onClick={() => setOutOfServiceMsg(null)}
+                >
+                    <div className="pt-card" style={{ maxWidth: 380 }} onClick={(e) => e.stopPropagation()}>
+                        <span className="pt-glow" aria-hidden="true" />
+                        <button
+                            type="button"
+                            className="pt-close"
+                            aria-label="Kapat"
+                            onClick={() => setOutOfServiceMsg(null)}
+                        >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#101114" strokeWidth="2.4" strokeLinecap="round">
+                                <path d="M18 6L6 18M6 6l12 12" />
+                            </svg>
+                        </button>
+                        <div style={{ textAlign: "center", padding: "10px 6px 4px" }}>
+                            <span
+                                className="pt-ic"
+                                style={{
+                                    margin: "0 auto 12px",
+                                    background: "rgba(58, 58, 244, 0.12)",
+                                    color: C.accent,
+                                }}
+                            >
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <path d="M2 12h20" />
+                                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                                </svg>
+                            </span>
+                            <div style={{ fontSize: 18.5, fontWeight: 700, letterSpacing: "-0.03em", color: C.ink }}>
+                                Şu an şehrinizde hizmet veremiyoruz
+                            </div>
+                            <p style={{ margin: "9px auto 0", maxWidth: 300, fontSize: 13.5, lineHeight: 1.52, color: C.ink2 }}>
+                                {outOfServiceMsg}
+                            </p>
+                            <button
+                                type="button"
+                                className="pt-primary"
+                                style={{ width: "100%", justifyContent: "center", marginTop: 18, padding: "13px 16px" }}
+                                onClick={() => setOutOfServiceMsg(null)}
+                            >
+                                <span style={{ fontSize: 14.5, fontWeight: 700 }}>Anladım</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Eksik konum uyarı modalı (aynı buzlu cam pt-card tasarımı) */}
             {searchWarn && (
