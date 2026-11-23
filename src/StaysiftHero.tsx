@@ -4740,53 +4740,36 @@ export default function StaysiftHero(props: HeroProps) {
                                             <div style={{ minWidth: 0 }}>
                                                 <div className="pt-eyebrow">
                                                     <span className="pt-live" />
-                                                    PayTR Güvenli Ödeme · -%15 İndirim
+                                                    Güvenli Online Ödeme · -%15 İndirim
                                                 </div>
                                                 <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-0.03em", marginTop: 2 }}>
-                                                    Bakiye Yükle
+                                                    Yolculuk Bedelini Öde
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <p style={{ margin: "12px 0 0", fontSize: 13.5, lineHeight: 1.45, color: C.ink2 }}>
-                                            Bu yolculuk için indirimli tutar <b>{memberPrice} TL</b>. Yüklemek istediğiniz bakiye tutarını seçin:
-                                        </p>
-
-                                        {/* Tutar Seçimi */}
-                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginTop: 14 }}>
-                                            {[memberPrice, 250, 500, 1000].map((amt) => {
-                                                const active = walletAmount === amt
-                                                return (
-                                                    <button
-                                                        key={amt}
-                                                        type="button"
-                                                        onClick={() => setWalletAmount(amt)}
-                                                        style={{
-                                                            padding: "11px 6px",
-                                                            borderRadius: 14,
-                                                            border: active ? `1.5px solid ${C.accent}` : "1px solid rgba(16,17,20,0.12)",
-                                                            background: active ? "rgba(58,58,244,0.10)" : "rgba(255,255,255,0.72)",
-                                                            color: active ? C.accent : C.ink,
-                                                            fontFamily: MONO,
-                                                            fontSize: 13.5,
-                                                            fontWeight: 700,
-                                                            cursor: "pointer",
-                                                            transition: "all .18s ease",
-                                                        }}
-                                                    >
-                                                        {amt} TL
-                                                    </button>
-                                                )
-                                            })}
+                                        {/* Seçili Rota ve Tek Seferlik Sabit Ücret Özeti */}
+                                        <div className="pt-tile" style={{ marginTop: 14, padding: "12px 14px" }}>
+                                            <div style={{ fontSize: 12.5, color: C.ink2, lineHeight: 1.45 }}>
+                                                <b style={{ color: C.ink }}>{fromName}</b> → <b style={{ color: C.ink }}>{toName}</b>
+                                            </div>
+                                            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(16,17,20,0.08)" }}>
+                                                <span style={{ fontSize: 12.5, color: C.ink2 }}>
+                                                    Standart ücret <s style={{ opacity: 0.7 }}>{basePrice} TL</s> · %15 indirimli
+                                                </span>
+                                                <span style={{ fontFamily: MONO, fontSize: 20, fontWeight: 700, color: C.accent }}>
+                                                    {memberPrice} TL
+                                                </span>
+                                            </div>
                                         </div>
 
-                                        {/* Sözleşme Onay Kutucuğu (PayTR Zorunlu Şartı) */}
+                                        {/* Sözleşme Onay Kutucuğu */}
                                         <label
                                             style={{
                                                 display: "flex",
                                                 alignItems: "flex-start",
                                                 gap: 9,
-                                                marginTop: 14,
+                                                marginTop: 12,
                                                 padding: "10px 12px",
                                                 borderRadius: 14,
                                                 background: "rgba(255,255,255,0.68)",
@@ -4833,19 +4816,19 @@ export default function StaysiftHero(props: HeroProps) {
                                                         setPhoneErr("Devam etmek için lütfen Mesafeli Satış Sözleşmesi ve İptal/İade Koşulları kutucuğunu onaylayın.")
                                                         return
                                                     }
-                                                    trackEvent("paytr_topup_click")
-                                                    setPhoneErr("PayTR ödeme ekranı entegrasyonu hazır — mağaza bilgileri tanımlandığında ödeme sayfasına yönlendirilecek.")
+                                                    trackEvent("online_pay_click")
+                                                    setPhoneErr("Online kartlı ödeme altyapısı onay sürecinde. Şimdilik bir önceki ekrandan Nakitle devam edebilirsiniz.")
                                                 }}
                                             >
                                                 <span style={{ flex: 1, minWidth: 0 }}>
                                                     <span style={{ display: "block", fontSize: 15, fontWeight: 700, letterSpacing: "-0.02em" }}>
-                                                        PayTR ile Güvenli Yükle
+                                                        Kartla Güvenli Öde ve Çağır
                                                     </span>
                                                     <span style={{ display: "block", fontSize: 12, opacity: 0.82, marginTop: 2 }}>
-                                                        3D Secure · Banka & Kredi Kartı
+                                                        Tek seferlik yolculuk ödemesi · 3D Secure
                                                     </span>
                                                 </span>
-                                                <span className="pt-badge">{walletAmount} TL</span>
+                                                <span className="pt-badge">{memberPrice} TL</span>
                                             </button>
                                         </div>
                                         <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "center", gap: 6 }}>
@@ -4975,10 +4958,10 @@ export default function StaysiftHero(props: HeroProps) {
                                             >
                                                 <span style={{ flex: 1, minWidth: 0 }}>
                                                     <span style={{ display: "block", fontSize: 15, fontWeight: 700, letterSpacing: "-0.02em" }}>
-                                                        {authUser ? "Bakiye yükle, %15 indirim kazan" : "Giriş yap, %15 indirimle çağır"}
+                                                        {authUser ? "Online öde, %15 indirimle çağır" : "Giriş yap, %15 indirimle çağır"}
                                                     </span>
                                                     <span style={{ display: "block", fontSize: 12, opacity: 0.82, marginTop: 2 }}>
-                                                        {authUser ? "PayTR ile güvenli bakiye yükle ve hemen çağır" : "Google veya e-posta ile saniyeler içinde giriş"}
+                                                        {authUser ? "Bu yolculuk için tek seferlik güvenli kart ödemesi" : "Google veya e-posta ile saniyeler içinde giriş"}
                                                     </span>
                                                 </span>
                                                 <span className="pt-badge">{memberPrice} TL</span>
@@ -5070,11 +5053,11 @@ export default function StaysiftHero(props: HeroProps) {
                                                 >
                                                     {authUser ? (
                                                         <>
-                                                            Nakit ile 1 saat içinde tekrar taksi çağıramazsınız ({cooldownMin} dk kaldı). Beklemeden hemen çağırmak için üstten <b>Bakiye yükle</b> seçeneğini kullanabilirsiniz.
+                                                            Nakit ile 1 saat içinde tekrar taksi çağıramazsınız ({cooldownMin} dk kaldı). Beklemeden hemen çağırmak için üstten <b>Online öde</b> seçeneğini kullanabilirsiniz.
                                                         </>
                                                     ) : (
                                                         <>
-                                                            Nakit ile 1 saat içinde tekrar taksi çağıramazsınız ({cooldownMin} dk kaldı). Hemen çağırmak için üstten <b>Giriş yap</b> seçeneğini kullanıp bakiye yükleyebilirsiniz.
+                                                            Nakit ile 1 saat içinde tekrar taksi çağıramazsınız ({cooldownMin} dk kaldı). Hemen çağırmak için üstten <b>Giriş yap</b> seçeneğini kullanıp tek seferlik online ödeme yapabilirsiniz.
                                                         </>
                                                     )}
                                                 </div>

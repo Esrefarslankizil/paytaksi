@@ -1152,12 +1152,12 @@ export default function AuthPage({
 
                                     <div style={{ fontWeight: 700, color: C.ink, fontSize: 15, marginTop: 4 }}>3. Üyelik ve Çağrı Kuralları</div>
                                     <p style={{ margin: 0 }}>
-                                        Sürücünün yolcuya ulaşabilmesi için geçerli bir cep telefonu numarasının (`05XX XXX XX XX`) girilmesi zorunludur. Üye girişi yapmadan nakit ödeme seçeneğiyle oluşturulan çağrılarda sahte çağrıları önlemek adına 60 dakikalık bekleme süresi uygulanır; üye girişi yapan ve cüzdan bakiyesi kullanan kullanıcılar %15 indirimle kesintisiz çağrı oluşturabilir.
+                                        Sürücünün yolcuya ulaşabilmesi için geçerli bir cep telefonu numarasının (`05XX XXX XX XX`) girilmesi zorunludur. Araçta nakit ödeme seçeneğiyle oluşturulan çağrılarda sahte çağrıları önlemek adına 60 dakikalık bekleme süresi uygulanır; üye girişi yaparak tek seferlik online kart ödemesiyle çağrı oluşturan kullanıcılar %15 indirimle kesintisiz çağrı oluşturabilir.
                                     </p>
 
                                     <div style={{ fontWeight: 700, color: C.ink, fontSize: 15, marginTop: 4 }}>4. Ücretlendirme ve 6493 Sayılı Kanun Kapsamında Ödeme</div>
                                     <p style={{ margin: 0 }}>
-                                        Yolculuk ücretleri güncel Elazığ taksi tarifesi (İndi-Bindi `250 TL`, Açılış `50 TL`, Km başı `45 TL/km`) esas alınarak karayolu mesafesine göre otomatik hesaplanır. Kartlı bakiye yükleme işlemleri <b>6493 sayılı Kanun</b> uyarınca TCMB ve BDDK lisanslı ödeme kuruluşu <b>PayTR</b> 3D Secure altyapısı üzerinden gerçekleştirilir; PayTaksi kart bilgilerini kesinlikle saklamaz.
+                                        Yolculuk ücretleri güncel Elazığ taksi tarifesi (İndi-Bindi `250 TL`, Açılış `50 TL`, Km başı `45 TL/km`) esas alınarak karayolu mesafesine göre otomatik hesaplanır. Online kart ödemeleri <b>6493 sayılı Kanun</b> uyarınca TCMB/BDDK lisanslı ödeme kuruluşu 3D Secure altyapısı üzerinden tek seferlik yolculuk bedeli olarak gerçekleştirilir; PayTaksi kart bilgilerini kesinlikle saklamaz ve bakiye/cüzdan tutmaz.
                                     </p>
 
                                     <div style={{ fontWeight: 700, color: C.ink, fontSize: 15, marginTop: 4 }}>5. Uyuşmazlıkların Çözümü</div>
@@ -1179,7 +1179,7 @@ export default function AuthPage({
 
                                     <div style={{ fontWeight: 700, color: C.ink, fontSize: 15, marginTop: 4 }}>3. Kişisel Verilerin Aktarılması (KVKK m. 8)</div>
                                     <p style={{ margin: 0 }}>
-                                        Adınız, telefon numaranız ve alış/varış adresiniz yalnızca çağrınızı kabul eden resmi ticari taksi sürücüsüne; bakiye yükleme işlem bilgileriniz ise 6493 sayılı Kanun kapsamında BDDK lisanslı ödeme kuruluşu <b>PayTR</b>’ye ve yasal zorunluluk halinde yetkili kamu kurumlarına aktarılır.
+                                        Adınız, telefon numaranız ve alış/varış adresiniz yalnızca çağrınızı kabul eden resmi ticari taksi sürücüsüne; tek seferlik online yolculuk ödeme bilgileriniz ise 6493 sayılı Kanun kapsamında BDDK lisanslı ödeme kuruluşuna ve yasal zorunluluk halinde yetkili kamu kurumlarına aktarılır.
                                     </p>
 
                                     <div style={{ fontWeight: 700, color: C.ink, fontSize: 15, marginTop: 4 }}>4. KVKK Madde 11 Kapsamındaki Haklarınız</div>

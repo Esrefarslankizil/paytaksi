@@ -35,14 +35,14 @@ const KVKK_TABLE = [
     },
     {
         category: "Yolculuk ve İşlem Bilgileri",
-        data: "Yolculuk güzergâhı, tarih, saat, süre, sabit tarife tutarı, ödeme tercihi (Nakit / Cüzdan), iptal kayıtları, talep ve şikâyetler.",
+        data: "Yolculuk güzergâhı, tarih, saat, süre, sabit tarife tutarı, ödeme tercihi (Nakit / Online Kart), iptal kayıtları, talep ve şikâyetler.",
         purpose: "Ulaşım aracılık hizmetinin ifası, suistimal ve sahte çağrıların önlenmesi, hizmet kalitesinin ölçülmesi ve uyuşmazlıkların çözümü.",
         legalBasis: "KVKK m. 5/2-c (Sözleşmenin ifası), m. 5/2-e (Bir hakkın tesisi, kullanılması veya korunması), m. 5/2-f (Meşru menfaat).",
     },
     {
         category: "Finansal ve Ödeme Bilgileri",
-        data: "Cüzdan bakiye yükleme tutarı, işlem tarihi/saati, PayTR işlem referans numarası, indirim (%15) kullanım bilgisi (Kredi kartı numarası ve CVV kesinlikle saklanmaz).",
-        purpose: "Ödeme ve bakiye yükleme işlemlerinin 6493 sayılı Kanun kapsamında BDDK lisanslı ödeme kuruluşu (PayTR) üzerinden gerçekleştirilmesi ve iade süreçlerinin yürütülmesi.",
+        data: "Tek seferlik yolculuk ödeme tutarı, işlem tarihi/saati, ödeme kuruluşu işlem referans numarası, indirim (%15) kullanım bilgisi (Kredi kartı numarası ve CVV kesinlikle saklanmaz).",
+        purpose: "Tek seferlik yolculuk hizmet bedelinin 6493 sayılı Kanun kapsamında BDDK lisanslı ödeme kuruluşu üzerinden tahsil edilmesi ve iptal/iade süreçlerinin yürütülmesi.",
         legalBasis: "KVKK m. 5/2-a (Kanunlarda açıkça öngörülmesi), m. 5/2-c (Sözleşmenin ifası), m. 5/2-ç (Hukuki yükümlülük).",
     },
     {
@@ -110,9 +110,9 @@ export default function LegalPage({ page }: { page: LegalSlug }) {
                             <h2>2. Tanımlar</h2>
                             <ul>
                                 <li><b>Platform (Site):</b> PayTaksi tarafından işletilen <a href="https://paytaksi.com.tr">www.paytaksi.com.tr</a> alan adlı web sitesi ve bağlı dijital servisleri.</li>
-                                <li><b>Yolcu (Kullanıcı):</b> Platform üzerinden alış ve varış noktası belirleyerek ticari taksi çağıran ve/veya cüzdan bakiyesi yükleyen gerçek kişi.</li>
+                                <li><b>Yolcu (Kullanıcı):</b> Platform üzerinden alış ve varış noktası belirleyerek ticari taksi çağıran ve/veya seçtiği yolculuk için tek seferlik online ödeme yapan gerçek kişi.</li>
                                 <li><b>Sürücü (Kaptan):</b> Elazığ il sınırları içerisinde ilgili belediye ve meslek odası mevzuatına uygun resmi ticari taksi plakası (23 T) ve sürücü belgesi ile yolcu taşımacılığı yapan bağımsız taşımacı.</li>
-                                <li><b>Cüzdan / Bakiye:</b> Yolcunun <b>6493 sayılı Kanun</b> kapsamında Türkiye Cumhuriyet Merkez Bankası (TCMB) ve BDDK lisanslı ödeme kuruluşu <b>PayTR Ödeme ve Elektronik Para Kuruluşu A.Ş.</b> altyapısı aracılığıyla hesabına yüklediği ve yolculuk ödemelerinde %15 indirim avantajıyla kullandığı dijital bakiye.</li>
+                                <li><b>Tek Seferlik Online Ödeme:</b> Yolcunun yalnızca seçtiği güzergâhın sabit yolculuk bedelini <b>6493 sayılı Kanun</b> kapsamında TCMB/BDDK lisanslı ödeme kuruluşu altyapısı aracılığıyla %15 indirim avantajıyla kredi/banka kartından tek seferde ödemesi. (Platformda ön ödemeli cüzdan veya bakiye saklama sistemi bulunmamaktadır.)</li>
                             </ul>
 
                             <h2>3. PayTaksi’nin Hukuki Statüsü (Aracı Hizmet Sağlayıcı)</h2>
@@ -126,7 +126,7 @@ export default function LegalPage({ page }: { page: LegalSlug }) {
                             <h2>4. Üyelik, Kullanım Şartları ve Çağrı Kuralları</h2>
                             <ul>
                                 <li><b>4.1. Üyelik:</b> Kullanıcı, Google OAuth 2.0 kimlik doğrulama servisi veya e-posta ve şifre bilgileriyle ücretsiz üye olabilir. Çağrı eşleşmesinin tamamlanabilmesi ve Sürücünün Yolcuya ulaşabilmesi için geçerli bir Türkiye GSM numarasının (`05XX XXX XX XX`) hesaba tanımlanması zorunludur.</li>
-                                <li><b>4.2. Yanıltıcı/Sahte Çağrı Önleme Politikası:</b> Sürücülerin zaman ve yakıt kaybına uğramasını önlemek amacıyla, üye girişi yapmadan (misafir olarak) araçta nakit ödeme seçeneğiyle oluşturulan çağrılarda ardışık çağrılar arasında <b>60 (altmış) dakikalık</b> güvenlik bekleme süresi uygulanır. Üye girişi yapan ve cüzdan bakiyesi kullanan doğrulamış kullanıcılar bu kısıtlamaya tabi olmaksızın kesintisiz çağrı oluşturabilir.</li>
+                                <li><b>4.2. Yanıltıcı/Sahte Çağrı Önleme Politikası:</b> Sürücülerin zaman ve yakıt kaybına uğramasını önlemek amacıyla, araçta nakit ödeme seçeneğiyle oluşturulan çağrılarda ardışık çağrılar arasında <b>60 (altmış) dakikalık</b> güvenlik bekleme süresi uygulanır. Üye girişi yaparak tek seferlik online kart ödemesiyle çağrı oluşturan doğrulanmış kullanıcılar bu kısıtlamaya tabi olmaksızın kesintisiz çağrı oluşturabilir.</li>
                                 <li><b>4.3. Yolcu Sorumlulukları:</b> Yolcu; belirttiği alış noktasında zamanında hazır bulunmayı, Sürücüye ve araca zarar verecek veya Karayolları Trafik Kanunu’na aykırı davranışlardan kaçınmayı, nakit seçilen yolculuklarda yolculuk bedelini Sürücüye eksiksiz ödemeyi kabul ve taahhüt eder.</li>
                             </ul>
 
@@ -135,10 +135,10 @@ export default function LegalPage({ page }: { page: LegalSlug }) {
                                 <b>5.1.</b> Platform üzerinde gösterilen yolculuk ücretleri; Elazığ güncel taksi tarifesi (İndi-Bindi kısa mesafe taban ücreti `250 TL`, taksimetre açılış ücreti `50 TL` ve kilometre başı `45 TL/km` birim ücreti) esas alınarak seçilen alış ve varış noktaları arasındaki gerçek karayolu sürüş mesafesi üzerinden otomatik hesaplanır ve çağrı onayı öncesinde şeffaf şekilde Türk Lirası (`TL`) cinsinden gösterilir.
                             </p>
                             <p>
-                                <b>5.2.</b> Üye girişi yaparak cüzdan bakiyesi ile ödeme yapan kullanıcılara standart sabit ücret üzerinden anında <b>%15 indirim</b> uygulanır.
+                                <b>5.2.</b> Üye girişi yaparak seçtiği yolculuğun ücretini tek seferlik online kart ödemesiyle tamamlayan kullanıcılara standart sabit ücret üzerinden anında <b>%15 indirim</b> uygulanır.
                             </p>
                             <p>
-                                <b>5.3.</b> Kartlı bakiye yükleme işlemleri, <b>6493 sayılı Ödeme ve Menkul Kıymet Mutabakat Sistemleri, Ödeme Hizmetleri ve Elektronik Para Kuruluşları Hakkında Kanun</b> uyarınca faaliyet gösteren <b>PayTR</b> güvenli sanal POS altyapısı ve 3D Secure doğrulaması ile gerçekleştirilir. PayTaksi hiçbir koşulda kredi/banka kartı numarası veya CVV bilgisi saklamaz.
+                                <b>5.3.</b> Online kart ödeme işlemleri, <b>6493 sayılı Ödeme ve Menkul Kıymet Mutabakat Sistemleri, Ödeme Hizmetleri ve Elektronik Para Kuruluşları Hakkında Kanun</b> uyarınca faaliyet gösteren TCMB/BDDK lisanslı ödeme kuruluşu güvenli sanal POS altyapısı ve 3D Secure doğrulaması ile tek seferlik hizmet bedeli olarak gerçekleştirilir. PayTaksi hiçbir koşulda kredi/banka kartı numarası veya CVV bilgisi saklamaz.
                             </p>
 
                             <h2>6. Fikri Mülkiyet Hakları</h2>
@@ -162,7 +162,7 @@ export default function LegalPage({ page }: { page: LegalSlug }) {
                         <article className="lp-prose">
                             <h2>1. Amaç ve Yasal Çerçeve</h2>
                             <p>
-                                İşbu Gizlilik ve Güvenlik Politikası (“Politika”), <a href="https://paytaksi.com.tr">www.paytaksi.com.tr</a> (“Site”) üzerinden sunulan dijital taksi çağırma ve cüzdan bakiye hizmetleri sırasında kullanıcılarımızın gizliliğinin korunması, bilgi güvenliği standartlarımız ve ödeme güvenliği esasları hakkında kullanıcılarımızı bilgilendirmek amacıyla; <b>6698 sayılı Kişisel Verilerin Korunması Kanunu (“KVKK”)</b>, <b>5651 sayılı Kanun</b>, <b>6563 sayılı Elektronik Ticaretin Düzenlenmesi Hakkında Kanun</b> ve <b>6493 sayılı Kanun</b> hükümlerine uyumlu olarak hazırlanmıştır.
+                                İşbu Gizlilik ve Güvenlik Politikası (“Politika”), <a href="https://paytaksi.com.tr">www.paytaksi.com.tr</a> (“Site”) üzerinden sunulan dijital taksi çağırma ve tek seferlik online yolculuk ödeme hizmetleri sırasında kullanıcılarımızın gizliliğinin korunması, bilgi güvenliği standartlarımız ve ödeme güvenliği esasları hakkında kullanıcılarımızı bilgilendirmek amacıyla; <b>6698 sayılı Kişisel Verilerin Korunması Kanunu (“KVKK”)</b>, <b>5651 sayılı Kanun</b>, <b>6563 sayılı Elektronik Ticaretin Düzenlenmesi Hakkında Kanun</b> ve <b>6493 sayılı Kanun</b> hükümlerine uyumlu olarak hazırlanmıştır.
                             </p>
 
                             <h2>2. İşlenen Veriler ve Gizlilik Esasları</h2>
@@ -177,7 +177,7 @@ export default function LegalPage({ page }: { page: LegalSlug }) {
                                 <b>3.1.</b> Site üzerindeki tüm veri iletişimi <b>256-bit SSL (Secure Sockets Layer / TLS 1.3)</b> şifreleme protokolü ile korunmaktadır.
                             </p>
                             <p>
-                                <b>3.2.</b> Cüzdan bakiye yükleme işlemlerinde kullanılan kredi kartı ve banka kartı bilgileri, <b>PayTaksi sunucularından geçmez ve hiçbir veritabanımızda kaydedilmez</b>. Ödeme işlemleri doğrudan TCMB ve BDDK denetimindeki <b>PayTR Ödeme ve Elektronik Para Kuruluşu A.Ş.</b>’nin <b>PCI-DSS (Payment Card Industry Data Security Standard) Level 1</b> sertifikalı güvenli ödeme sayfasında ve bankanızın <b>3D Secure (SMS doğrulama)</b> ekranında gerçekleşir.
+                                <b>3.2.</b> Online yolculuk ödeme işlemlerinde kullanılan kredi kartı ve banka kartı bilgileri, <b>PayTaksi sunucularından geçmez ve hiçbir veritabanımızda kaydedilmez</b>. Ödeme işlemleri doğrudan TCMB ve BDDK denetimindeki lisanslı ödeme kuruluşunun <b>PCI-DSS (Payment Card Industry Data Security Standard) Level 1</b> sertifikalı güvenli ödeme sayfasında ve bankanızın <b>3D Secure (SMS doğrulama)</b> ekranında tek seferlik işlem olarak gerçekleşir.
                             </p>
 
                             <h2>4. Veri Güvenliği Tedbirleri ve Saklama Süreleri</h2>
@@ -206,7 +206,7 @@ export default function LegalPage({ page }: { page: LegalSlug }) {
 
                             <h2>2. İşlenen Kişisel Veri Kategorileri, Amaçları ve Hukuki Sebepleri</h2>
                             <p>
-                                Platformumuzu ziyaretiniz, üyelik oluşturmanız, bakiye yüklemeniz ve taksi çağırma hizmetinden yararlanmanız kapsamında işlenen kişisel veri kategorileri, işlenme amaçları ve KVKK’nın 5. maddesine dayanan hukuki sebepleri aşağıdaki tabloda detaylı olarak sunulmuştur:
+                                Platformumuzu ziyaretiniz, üyelik oluşturmanız, tek seferlik yolculuk ödemesi yapmanız ve taksi çağırma hizmetinden yararlanmanız kapsamında işlenen kişisel veri kategorileri, işlenme amaçları ve KVKK’nın 5. maddesine dayanan hukuki sebepleri aşağıdaki tabloda detaylı olarak sunulmuştur:
                             </p>
 
                             <div className="lp-table-wrap">
@@ -243,7 +243,7 @@ export default function LegalPage({ page }: { page: LegalSlug }) {
                             </p>
                             <ul>
                                 <li><b>Taksi Sürücüleri:</b> Taksi çağırma talebinizin karşılanması ve sürücünün alış noktasına gelip sizinle iletişime geçebilmesi amacıyla adınız, telefon numaranız ve alış/varış konumunuz yalnızca çağrıyı üstlenen sürücüye iletilir.</li>
-                                <li><b>Lisanslı Ödeme Kuruluşu (PayTR):</b> Bakiye yükleme ve iade işlemlerinin 6493 sayılı Kanun uyarınca gerçekleştirilmesi amacıyla işlem tutarı ve kullanıcı iletişim bilgisi PayTR Ödeme ve Elektronik Para Kuruluşu A.Ş. ile paylaşılır.</li>
+                                <li><b>Lisanslı Ödeme Kuruluşu:</b> Tek seferlik yolculuk ödemesi ve iptal/iade işlemlerinin 6493 sayılı Kanun uyarınca gerçekleştirilmesi amacıyla işlem tutarı ve kullanıcı iletişim bilgisi TCMB/BDDK lisanslı ödeme kuruluşu ile paylaşılır.</li>
                                 <li><b>Yetkili Kamu Kurum ve Kuruluşları:</b> 5651 sayılı Kanun ve ilgili mevzuat uyarınca mahkemeler, savcılıklar veya kolluk kuvvetleri tarafından usulüne uygun talep edilmesi halinde yasal yükümlülüğümüz (KVKK m. 5/2-ç) gereği yetkili mercilere aktarılır.</li>
                             </ul>
 
@@ -280,31 +280,30 @@ export default function LegalPage({ page }: { page: LegalSlug }) {
                         <article className="lp-prose">
                             <h2>1. Yasal Dayanak ve Kapsam</h2>
                             <p>
-                                İşbu İptal ve İade Politikası; <b>6502 sayılı Tüketicinin Korunması Hakkında Kanun’un 48. maddesi</b> ve <b>29188 sayılı Resmî Gazete’de yayımlanan Mesafeli Sözleşmeler Yönetmeliği</b> hükümleri uyarınca, <a href="https://paytaksi.com.tr">www.paytaksi.com.tr</a> üzerinden oluşturulan taksi çağrılarının iptali ile PayTR sanal POS altyapısı üzerinden yüklenen dijital cüzdan bakiyelerinin iade usul ve esaslarını düzenlemektedir.
+                                İşbu İptal ve İade Politikası; <b>6502 sayılı Tüketicinin Korunması Hakkında Kanun’un 48. maddesi</b> ve <b>29188 sayılı Resmî Gazete’de yayımlanan Mesafeli Sözleşmeler Yönetmeliği</b> hükümleri uyarınca, <a href="https://paytaksi.com.tr">www.paytaksi.com.tr</a> üzerinden oluşturulan taksi çağrılarının iptali ile tek seferlik online yolculuk ödemelerinin iade usul ve esaslarını düzenlemektedir.
                             </p>
 
                             <h2>2. Taksi Çağrısının İptali Koşulları</h2>
                             <ul>
-                                <li><b>2.1. Yolcu Tarafından İptal:</b> Yolcu, yönlendirilen taksi alış noktasına ulaşmadan önce çağrısını hiçbir kesinti veya cezai şart olmaksızın ücretsiz olarak iptal edebilir.</li>
-                                <li><b>2.2. Sürücü Kaynaklı İptal veya Gecikme:</b> Sürücünün makul sürede alış noktasına ulaşamaması, arıza veya mücbir sebeple yolculuğun başlamaması halinde çağrı iptal edilir ve kullanıcının cüzdan bakiyesinden hiçbir tahsilat yapılmaz.</li>
+                                <li><b>2.1. Yolcu Tarafından İptal:</b> Yolcu, yönlendirilen taksi alış noktasına ulaşmadan önce çağrısını hiçbir kesinti veya cezai şart olmaksızın ücretsiz olarak iptal edebilir. Online kart ödemesi yapılmışsa tahsil edilen tutarın tamamı karta iade edilir.</li>
+                                <li><b>2.2. Sürücü Kaynaklı İptal veya Gecikme:</b> Sürücünün makul sürede alış noktasına ulaşamaması, arıza veya mücbir sebeple yolculuğun başlamaması halinde çağrı iptal edilir ve ödenen tutarın tamamı kesintisiz iade edilir.</li>
                             </ul>
 
-                            <h2>3. Cüzdan Bakiyesi İadesi ve Cayma Hakkı (14 Gün)</h2>
+                            <h2>3. Online Yolculuk Ödemesi İadesi ve Cayma Hakkı</h2>
                             <ul>
-                                <li><b>3.1. 14 Günlük Kesintisiz Cayma Hakkı:</b> Mesafeli Sözleşmeler Yönetmeliği’nin 9. maddesi uyarınca Alıcı (Kullanıcı), kredi kartı veya banka kartı ile hesabına yüklediği ve <b>henüz herhangi bir yolculukta harcamadığı</b> dijital bakiyeyi, yükleme tarihinden itibaren <b>14 (ondört) gün</b> içerisinde hiçbir gerekçe göstermeksizin ve cezai şart ödemeksizin iade alma hakkına sahiptir.</li>
-                                <li><b>3.2. Kısmi Kullanım Durumunda İade:</b> Yüklenen bakiyenin bir kısmı ile yolculuk yapılmış olması halinde, kullanılan yolculuk tutarı düşüldükten sonra kalan kullanılmamış bakiye tutarının tamamı kullanıcının talebi üzerine iade edilir.</li>
-                                <li><b>3.3. Tamamlanmış Yolculuklar:</b> Mesafeli Sözleşmeler Yönetmeliği’nin 15/1-ğ maddesi uyarınca, fiilen tamamlanmış ve ifa edilmiş ulaşım hizmetlerine ilişkin bedeller (hizmet kusuru veya fazla tahsilat halleri saklı kalmak kaydıyla) cayma hakkı kapsamı dışındadır. Hatalı veya mükerrer tahsilat tespit edilmesi halinde ise süre sınırı olmaksızın derhal tam iade yapılır.</li>
+                                <li><b>3.1. Yolculuk Başlamadan İptal ve Tam İade:</b> Alıcı (Kullanıcı), kredi kartı veya banka kartı ile tek seferlik olarak ödediği yolculuk hizmetini, araç alış noktasına gelmeden ve yolculuk fiilen başlamadan önce iptal etmesi halinde hiçbir gerekçe göstermeksizin ve cezai şart ödemeksizin <b>%100 tam iade</b> alma hakkına sahiptir.</li>
+                                <li><b>3.2. Tamamlanmış Yolculuklar:</b> Mesafeli Sözleşmeler Yönetmeliği’nin 15/1-ğ maddesi uyarınca, fiilen tamamlanmış ve ifa edilmiş ulaşım hizmetlerine ilişkin bedeller (hizmet kusuru veya fazla tahsilat halleri saklı kalmak kaydıyla) cayma hakkı kapsamı dışındadır. Hatalı veya mükerrer tahsilat tespit edilmesi halinde ise süre sınırı olmaksızın derhal tam iade yapılır.</li>
                             </ul>
 
                             <h2>4. İade Başvurusu ve Karta Geri Ödeme Süresi</h2>
                             <p>
-                                <b>4.1. Başvuru:</b> İade talepleri; işlem yapılan hesap e-posta adresi, telefon numarası ve işlem tarihi belirtilerek <a href="mailto:destek@paytaksi.com.tr">destek@paytaksi.com.tr</a> adresine iletilir.
+                                <b>4.1. Başvuru:</b> İade talepleri; işlem yapılan hesap e-posta adresi, telefon numarası ve işlem tarihi belirtilerek <a href="mailto:destek@paytaksi.com.tr">destek@paytaksi.com.tr</a> adresine veya <a href="tel:+905011366815">0501 136 68 15</a> destek hattına iletilir.
                             </p>
                             <p>
-                                <b>4.2. Geri Ödeme Süreci:</b> İade talebi PayTaksi tarafından incelenerek <b>en geç 3 (üç) iş günü</b> içerisinde onaylanır ve <b>PayTR</b> ödeme ağ geçidi üzerinden işlemin gerçekleştirildiği kredi veya banka kartına iade talimatı verilir.
+                                <b>4.2. Geri Ödeme Süreci:</b> İade talebi PayTaksi tarafından incelenerek <b>en geç 3 (üç) iş günü</b> içerisinde onaylanır ve ödeme kuruluşu üzerinden işlemin gerçekleştirildiği kredi veya banka kartına iade talimatı verilir.
                             </p>
                             <p>
-                                <b>4.3. Banka Yansıma Süresi:</b> PayTR üzerinden bankaya iletilen iade tutarının kart ekstresine veya vadesiz hesaba yansıması, kartı veren bankanın iç operasyon süreçlerine bağlı olarak banka kartlarında ortalama <b>1–3 iş günü</b>, kredi kartlarında ise <b>2–7 iş günü</b> içerisinde gerçekleşmektedir.
+                                <b>4.3. Banka Yansıma Süresi:</b> Ödeme kuruluşu üzerinden bankaya iletilen iade tutarının kart ekstresine veya vadesiz hesaba yansıması, kartı veren bankanın iç operasyon süreçlerine bağlı olarak banka kartlarında ortalama <b>1–3 iş günü</b>, kredi kartlarında ise <b>2–7 iş günü</b> içerisinde gerçekleşmektedir.
                             </p>
                             <p style={{ fontWeight: 600, color: C.ink }}>Güncellenme Tarihi: Kasım 2026</p>
                         </article>
@@ -327,35 +326,35 @@ export default function LegalPage({ page }: { page: LegalSlug }) {
                             </p>
                             <p>
                                 <b>1.2. Alıcı (Kullanıcı / Tüketici):</b><br />
-                                <a href="https://paytaksi.com.tr">www.paytaksi.com.tr</a> internet sitesine üye olarak kendi adına dijital ulaşım bakiyesi yükleyen veya taksi çağırma hizmetinden yararlanan, kimlik ve iletişim bilgileri üye kayıt ekranında yer alan gerçek kişi.
+                                <a href="https://paytaksi.com.tr">www.paytaksi.com.tr</a> internet sitesine üye olarak seçtiği güzergâh için tek seferlik online yolculuk ödemesi yapan veya taksi çağırma hizmetinden yararlanan, kimlik ve iletişim bilgileri üye kayıt ekranında yer alan gerçek kişi.
                             </p>
 
                             <h2>Madde 2 – Sözleşmenin Konusu ve Yasal Dayanak</h2>
                             <p>
-                                İşbu Mesafeli Hizmet Satış Sözleşmesi ve Ön Bilgilendirme Formu’nun (“Sözleşme”) konusu; Alıcı’nın Hizmet Sağlayıcı’ya ait <a href="https://paytaksi.com.tr">www.paytaksi.com.tr</a> internet sitesi üzerinden elektronik ortamda siparişini verdiği <b>Dijital Ulaşım Cüzdan Bakiyesi Yükleme ve Taksi Yönlendirme Hizmeti</b>’nin nitelikleri, vergiler dahil toplam fiyatı, ödeme, ifa ve cayma/iade koşulları ile ilgili olarak <b>6502 sayılı Tüketicinin Korunması Hakkında Kanun’un 48. maddesi</b> ve <b>29188 sayılı Mesafeli Sözleşmeler Yönetmeliği</b> hükümleri gereğince tarafların hak ve yükümlülüklerinin belirlenmesidir.
+                                İşbu Mesafeli Hizmet Satış Sözleşmesi ve Ön Bilgilendirme Formu’nun (“Sözleşme”) konusu; Alıcı’nın Hizmet Sağlayıcı’ya ait <a href="https://paytaksi.com.tr">www.paytaksi.com.tr</a> internet sitesi üzerinden elektronik ortamda siparişini verdiği <b>Tek Seferlik Sabit Fiyatlı Taksi Yolculuk ve Yönlendirme Hizmeti</b>’nin nitelikleri, vergiler dahil toplam fiyatı, ödeme, ifa ve iptal/iade koşulları ile ilgili olarak <b>6502 sayılı Tüketicinin Korunması Hakkında Kanun’un 48. maddesi</b> ve <b>29188 sayılı Mesafeli Sözleşmeler Yönetmeliği</b> hükümleri gereğince tarafların hak ve yükümlülüklerinin belirlenmesidir.
                             </p>
 
                             <h2>Madde 3 – Sözleşme Konusu Hizmetin Temel Nitelikleri ve Bedeli</h2>
                             <ul>
-                                <li><b>3.1. Hizmet Tanımı:</b> Elazığ il sınırları içerisinde gerçekleştirilecek ticari taksi yolculuklarında kullanılmak üzere kullanıcı hesabına tanımlanan %15 indirim avantajlı dijital cüzdan bakiyesi (`170 TL`, `250 TL`, `500 TL`, `1000 TL` veya rota bazlı hesaplanan tutar).</li>
-                                <li><b>3.2. Tarife ve Fiyatlandırma Esasları:</b> Platformda yolculuk ücretleri güncel Elazığ taksi tarifesi (İndi-Bindi `250 TL`, Açılış `50 TL`, Km başı `45 TL/km`) üzerinden karayolu mesafesine göre hesaplanır; üye bakiyesiyle ödemede `%15` indirim uygulanır. Ekranda belirtilen tutarlar Türk Lirası (`TL`) cinsindendir ve tüm vergiler dahildir; kullanıcıdan ek komisyon veya gizli ücret talep edilmez.</li>
-                                <li><b>3.3. Ödeme Yöntemi:</b> 6493 sayılı Kanun kapsamında lisanslı ödeme kuruluşu <b>PayTR</b> 3D Secure Sanal POS altyapısı üzerinden Kredi Kartı / Banka Kartı ile peşin çekim.</li>
+                                <li><b>3.1. Hizmet Tanımı:</b> Elazığ il sınırları içerisinde Alıcı’nın haritadan seçtiği alış ve varış noktaları arasında gerçekleştirilecek tek seferlik ticari taksi yolculuğu hizmeti (Platformda ön ödemeli cüzdan veya bakiye saklama sistemi bulunmamaktadır).</li>
+                                <li><b>3.2. Tarife ve Fiyatlandırma Esasları:</b> Platformda yolculuk ücretleri güncel Elazığ taksi tarifesi (İndi-Bindi `250 TL`, Açılış `50 TL`, Km başı `45 TL/km`) üzerinden karayolu mesafesine göre hesaplanır; online kart ödemesinde `%15` indirim uygulanır. Ekranda belirtilen tutarlar Türk Lirası (`TL`) cinsindendir ve tüm vergiler dahildir; kullanıcıdan ek komisyon veya gizli ücret talep edilmez.</li>
+                                <li><b>3.3. Ödeme Yöntemi:</b> 6493 sayılı Kanun kapsamında TCMB/BDDK lisanslı ödeme kuruluşu 3D Secure Sanal POS altyapısı üzerinden Kredi Kartı / Banka Kartı ile tek seferlik peşin çekim.</li>
                             </ul>
 
                             <h2>Madde 4 – Hizmetin İfası ve Teslimat Şekli</h2>
                             <p>
-                                <b>4.1.</b> Satın alınan dijital bakiye, fiziksel sevkiyat gerektirmeyen elektronik bir hizmettir. Alıcı’nın PayTR 3D Secure ekranında ödemeyi onaylamasının hemen ardından bakiye <b>anında (saniyeler içinde)</b> Alıcı’nın PayTaksi kullanıcı hesabına elektronik olarak tanımlanır.
+                                <b>4.1.</b> Satın alınan yolculuk hizmeti, fiziksel kargo gerektirmeyen anlık şehir içi ulaşım hizmetidir. Alıcı’nın 3D Secure ekranında tek seferlik ödemeyi onaylamasının hemen ardından en yakın nöbetçi ticari taksi <b>anında</b> alış noktasına yönlendirilir.
                             </p>
                             <p>
-                                <b>4.2.</b> Hizmetin herhangi bir teknik aksaklık nedeniyle ifa edilememesi halinde Alıcı derhal bilgilendirilir ve tahsil edilen tutar en geç 3 (üç) iş günü içinde ödeme yapılan karta kesintisiz iade edilir.
+                                <b>4.2.</b> Hizmetin herhangi bir teknik aksaklık veya sürücü kaynaklı sebep nedeniyle ifa edilememesi halinde Alıcı derhal bilgilendirilir ve tahsil edilen tutar en geç 3 (üç) iş günü içinde ödeme yapılan karta kesintisiz iade edilir.
                             </p>
 
-                            <h2>Madde 5 – Cayma Hakkı ve İade Koşulları (Yönetmelik m. 9 ve m. 12)</h2>
+                            <h2>Madde 5 – İptal ve İade Koşulları (Yönetmelik m. 9 ve m. 12)</h2>
                             <p>
-                                <b>5.1.</b> Alıcı, hesabına yüklediği ve <b>henüz yolculukta kullanmadığı</b> dijital bakiyeye ilişkin olarak, yükleme tarihinden itibaren <b>14 (ondört) gün</b> içinde herhangi bir gerekçe göstermeksizin ve cezai şart ödemeksizin cayma hakkını kullanarak tam iade talep edebilir.
+                                <b>5.1.</b> Alıcı, tek seferlik ödemesini yaptığı yolculuğu araç alış noktasına ulaşmadan ve yolculuk fiilen başlamadan önce iptal ederek hiçbir kesinti olmaksızın <b>%100 tam iade</b> talep edebilir.
                             </p>
                             <p>
-                                <b>5.2.</b> Cayma hakkının kullanılması için <a href="mailto:destek@paytaksi.com.tr">destek@paytaksi.com.tr</a> adresine e-posta gönderilmesi yeterlidir. Cayma bildiriminin ulaşmasını takip eden en geç 3 (üç) iş günü içerisinde tutar PayTR aracılığıyla Alıcı’nın ödeme yaptığı karta iade edilir.
+                                <b>5.2.</b> İade talebi için <a href="mailto:destek@paytaksi.com.tr">destek@paytaksi.com.tr</a> adresine e-posta gönderilmesi veya <a href="tel:+905011366815">0501 136 68 15</a> hattının aranması yeterlidir. Talebin ulaşmasını takip eden en geç 3 (üç) iş günü içerisinde tutar ödeme kuruluşu aracılığıyla Alıcı’nın ödeme yaptığı karta iade edilir.
                             </p>
 
                             <h2>Madde 6 – Uyuşmazlıkların Çözümü ve Yetkili Merciler</h2>
