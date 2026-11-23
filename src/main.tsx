@@ -8,7 +8,7 @@ import AboutPage from "./components/AboutPage"
 import PartnerPage from "./components/PartnerPage"
 import CookiePolicyPage from "./components/CookiePolicyPage"
 import LegalPage from "./components/LegalPage"
-import ServiceAreasPage from "./components/ServiceAreasPage"
+import ServiceAreasPage, { ServiceAreasSection } from "./components/ServiceAreasPage"
 import Footer from "./components/Footer"
 
 function App() {
@@ -70,6 +70,7 @@ function App() {
             <div style={{ width: "100%", height: "100dvh", position: "relative", overflow: "hidden", background: "#F1EFEA" }}>
                 <StaysiftHero showNav={true} />
             </div>
+            <ServiceAreasSection />
             <Footer />
         </div>
     )

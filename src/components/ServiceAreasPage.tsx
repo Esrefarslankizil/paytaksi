@@ -1,5 +1,5 @@
 import * as React from "react"
-import { useEffect, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import Footer from "./Footer"
 
 const C = {
@@ -8,59 +8,427 @@ const C = {
     ink2: "#55575E",
     line: "rgba(16, 17, 20, 0.09)",
     accent: "#3A3AF4",
-    ok: "#0E8A5F",
 }
 
 const SANS = "'Inter Tight', 'Inter', system-ui, sans-serif"
-const MONO = "'JetBrains Mono', ui-monospace, monospace"
+const MONO = "'JetBrains Mono', ui-monospace, 'SF Mono', monospace"
 
-const ACTIVE_ZONES = [
+type CatKey = "all" | "merkez" | "havalimani" | "hastane" | "avm" | "kampus" | "turistik" | "ilceler"
+
+const CATEGORIES: { key: CatKey; label: string; path: string }[] = [
     {
-        title: "Elazığ Merkez & Çarşı",
+        key: "all",
+        label: "Tümü",
+        path: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3c3 3.3 3 14.7 0 18M12 3c-3 3.3-3 14.7 0 18",
+    },
+    {
+        key: "merkez",
+        label: "Şehir Merkezi",
+        path: "M3 21h18M5 21V8l5-3v16M10 21V10h9v11M13 13h3M13 16h3M7 11h1M7 14h1",
+    },
+    {
+        key: "havalimani",
+        label: "Havalimanı",
+        path: "M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z",
+    },
+    {
+        key: "hastane",
+        label: "Hastaneler",
+        path: "M4 20V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14M2 20h20M12 8v6M9 11h6M9 20v-4h6v4",
+    },
+    {
+        key: "avm",
+        label: "AVM & Yaşam",
+        path: "M6 7h12l1 13H5L6 7zM9 7V5a3 3 0 0 1 6 0v2",
+    },
+    {
+        key: "kampus",
+        label: "Üniversite",
+        path: "M2 10l10-5 10 5-10 5-10-5zM6 12v5c0 1.8 2.7 3 6 3s6-1.2 6-3v-5",
+    },
+    {
+        key: "turistik",
+        label: "Harput & Göl",
+        path: "M2 20l7-12 4 6 3-4 6 10zM9 8l2 3",
+    },
+    {
+        key: "ilceler",
+        label: "İlçeler",
+        path: "M4 20V10l5-4 5 4v10M14 20v-7h6v7M2 20h20M9 20v-4",
+    },
+]
+
+interface AreaItem {
+    slug: string
+    title: string
+    district: string
+    price: string
+    eta: string
+    img: string
+    cats: CatKey[]
+}
+
+const SERVICE_AREAS: AreaItem[] = [
+    {
+        slug: "carsi-gazi-cd",
+        title: "Çarşı · Gazi Caddesi & İzzetpaşa",
+        district: "Elazığ Merkez · ~2 dk",
+        price: "250 TL",
         eta: "~2 dk",
-        areas: ["Gazi Caddesi", "İzzetpaşa", "Nailbey", "Cumhuriyet Mah.", "Yeni Mahalle", "Kültür Park"],
-        desc: "Şehir merkezinin tamamında 7/24 kesintisiz ve en hızlı taksi yönlendirme.",
+        img: "/places/elysium.webp",
+        cats: ["merkez", "avm"],
     },
     {
+        slug: "elysium-park-avm",
         title: "Elysium Park AVM & Çaydaçıra",
+        district: "Çaydaçıra · Ataşehir",
+        price: "250 TL",
         eta: "~3 dk",
-        areas: ["Çaydaçıra Mah.", "Ataşehir", "Abdullahpaşa", "Hilalkent", "Malatya Yolu", "Üniversite Mah."],
-        desc: "Modern konut bölgeleri ve alışveriş merkezlerinden sabit fiyatlı anlık taksi.",
+        img: "/places/Elsium.webp",
+        cats: ["avm", "merkez"],
     },
     {
-        title: "Fethi Sekin Şehir Hastanesi & Kampüs",
-        eta: "~3 dk",
-        areas: ["Şehir Hastanesi", "Fırat Üniversitesi", "Fırat Tıp Merkezi", "Doğukent", "Ulukent", "Sanayi"],
-        desc: "Hastane acil/poliklinik çıkışları ve üniversite kampüsüne 7/24 öncelikli araç.",
-    },
-    {
-        title: "Elazığ Havalimanı Transfer",
+        slug: "elazig-havalimani",
+        title: "Elazığ Havalimanı (EZS) Transfer",
+        district: "Akçakiraz · Terminal",
+        price: "490 TL",
         eta: "~5 dk",
-        areas: ["Elazığ Havalimanı (EZS)", "Akçakiraz", "Yazıkonak", "Yurtbaşı", "Kuyulu"],
-        desc: "Uçuş saatlerinize uygun, sürpriz ücret olmadan kapıdan terminale sabit fiyatlı transfer.",
+        img: "/places/havalimani.webp",
+        cats: ["havalimani"],
     },
     {
-        title: "Harput & Turistik Noktalar",
+        slug: "fethi-sekin-sehir-hastanesi",
+        title: "Fethi Sekin Şehir Hastanesi",
+        district: "Doğukent · Acil & Poliklinik",
+        price: "270 TL",
+        eta: "~3 dk",
+        img: "/places/sehir-hastanesi.avif",
+        cats: ["hastane"],
+    },
+    {
+        slug: "harput-kalesi-hilton",
+        title: "Harput Kalesi & Hilton Oteller Bölgesi",
+        district: "Harput · Tarihi Merkez",
+        price: "350 TL",
         eta: "~6 dk",
-        areas: ["Harput Kalesi", "Buzluk Mağarası", "Hilton & Oteller", "Sivrice / Hazar Gölü", "Keban Yolu"],
-        desc: "Tarihi Harput, oteller bölgesi ve Hazar Gölü güzergâhlarında güvenilir ulaşım.",
+        img: "/places/hilton.avif",
+        cats: ["turistik"],
     },
     {
-        title: "Elazığ İlçeleri & Çevre",
-        eta: "Planlı / Anlık",
-        areas: ["Kovancılar", "Karakoçan", "Palu", "Baskil", "Maden", "Sivrice", "Keban", "Arıcak", "Alacakaya", "Ağın"],
-        desc: "Elazığ'ın tüm ilçelerine ve çevre mahallelerine şeffaf kilometre tarifesiyle ulaşım.",
+        slug: "firat-universitesi",
+        title: "Fırat Üniversitesi & Tıp Merkezi",
+        district: "Üniversite Mah. · Kampüs",
+        price: "250 TL",
+        eta: "~2 dk",
+        img: "/places/elazıg-fethi-sekin-sehir-hastanesi-16x9-1920x1080-4.avif",
+        cats: ["kampus", "hastane"],
+    },
+    {
+        slug: "abdullahpasa-hilalkent",
+        title: "Abdullahpaşa & Hilalkent",
+        district: "Malatya Yolu · Batı Elazığ",
+        price: "280 TL",
+        eta: "~4 dk",
+        img: "/places/Elazığ Hilton Otel.avif",
+        cats: ["merkez", "avm"],
+    },
+    {
+        slug: "hazar-golu-sivrice",
+        title: "Hazar Gölü & Sivrice Sahil",
+        district: "Sivrice · Plaj & Tesisler",
+        price: "950 TL",
+        eta: "Planlı",
+        img: "/places/ElazığHavalimanı .webp",
+        cats: ["turistik", "ilceler"],
+    },
+    {
+        slug: "elazig-ilceler",
+        title: "Kovancılar · Baskil · Palu · Keban",
+        district: "Tüm Elazığ İlçeleri",
+        price: "45 TL / km",
+        eta: "7/24",
+        img: "/places/hilton.avif",
+        cats: ["ilceler"],
     },
 ]
 
-const UPCOMING_CITIES = [
-    { name: "Malatya", tag: "Yakında" },
-    { name: "Diyarbakır", tag: "Yakında" },
-    { name: "Tunceli", tag: "Yakında" },
-    { name: "Bingöl", tag: "Yakında" },
-    { name: "Şanlıurfa", tag: "Planlanıyor" },
-    { name: "Gaziantep", tag: "Planlanıyor" },
-]
+export function ServiceAreasSection() {
+    const [activeCat, setActiveCat] = useState<CatKey>("all")
+    const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+    const [indicator, setIndicator] = useState({ left: 0, width: 58 })
+
+    const filtered = activeCat === "all" ? SERVICE_AREAS : SERVICE_AREAS.filter((item) => item.cats.includes(activeCat))
+
+    useLayoutEffect(() => {
+        const updateInd = () => {
+            const btn = tabRefs.current[activeCat]
+            if (btn) {
+                setIndicator({ left: btn.offsetLeft, width: btn.offsetWidth })
+            }
+        }
+        updateInd()
+        window.addEventListener("resize", updateInd)
+        return () => window.removeEventListener("resize", updateInd)
+    }, [activeCat])
+
+    const activeCatLabel = CATEGORIES.find((c) => c.key === activeCat)?.label ?? "Tümü"
+
+    return (
+        <section
+            id="hizmet-bolgeleri"
+            style={{
+                width: "100%",
+                maxWidth: 1240,
+                margin: "0 auto",
+                position: "relative",
+                fontFamily: SANS,
+                color: C.ink,
+                padding: "72px 40px",
+                boxSizing: "border-box",
+            }}
+        >
+            <style>{`
+                @keyframes ssCatIn {
+                    from { opacity: 0; transform: translateY(14px) scale(.98); }
+                    to { opacity: 1; transform: none; }
+                }
+                .pt-sa-tabs::-webkit-scrollbar { display: none; }
+                .pt-sa-grid {
+                    display: grid;
+                    grid-template-columns: repeat(3, minmax(0px, 1fr));
+                    gap: 18px;
+                    margin-top: 22px;
+                }
+                .pt-sa-card img {
+                    transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+                }
+                .pt-sa-card:hover img {
+                    transform: scale(1.04);
+                }
+                @media (max-width: 900px) {
+                    .pt-sa-grid {
+                        grid-template-columns: repeat(2, minmax(0px, 1fr));
+                    }
+                }
+                @media (max-width: 600px) {
+                    #hizmet-bolgeleri {
+                        padding: 48px 18px !important;
+                    }
+                    .pt-sa-grid {
+                        grid-template-columns: 1fr;
+                        gap: 16px;
+                    }
+                }
+                @media (prefers-reduced-motion: reduce) {
+                    .pt-sa-card { animation: none !important; }
+                }
+            `}</style>
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 18, gap: 12, flexWrap: "wrap" }}>
+                <h2 style={{ margin: 0, fontSize: "clamp(24px, 3vw, 30px)", fontWeight: 600, letterSpacing: "-0.035em" }}>
+                    Hizmet verdiğimiz bölgeler
+                </h2>
+                <span style={{ fontFamily: MONO, fontSize: 12, color: C.ink2 }}>
+                    {filtered.length} / {SERVICE_AREAS.length} bölge · Elazığ 7/24
+                </span>
+            </div>
+
+            {/* Kategori Sekmeleri */}
+            <div
+                role="tablist"
+                aria-label="Hizmet bölgeleri kategorileri"
+                className="pt-sa-tabs"
+                style={{
+                    position: "relative",
+                    display: "flex",
+                    gap: 6,
+                    overflowX: "auto",
+                    scrollbarWidth: "none",
+                    paddingBottom: 12,
+                    borderBottom: `1px solid ${C.line}`,
+                }}
+            >
+                {CATEGORIES.map((cat) => {
+                    const selected = activeCat === cat.key
+                    return (
+                        <button
+                            key={cat.key}
+                            ref={(el) => {
+                                tabRefs.current[cat.key] = el
+                            }}
+                            type="button"
+                            role="tab"
+                            aria-selected={selected}
+                            onClick={() => setActiveCat(cat.key)}
+                            style={{
+                                flex: "0 0 auto",
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                gap: 7,
+                                padding: "10px 14px",
+                                border: 0,
+                                borderRadius: 14,
+                                cursor: "pointer",
+                                background: selected ? "rgba(255, 255, 255, 0.72)" : "transparent",
+                                color: selected ? C.ink : C.ink2,
+                                fontFamily: SANS,
+                                fontSize: 13,
+                                fontWeight: 600,
+                                transition: "background 0.2s ease, color 0.2s ease",
+                            }}
+                        >
+                            <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" style={{ flex: "none", display: "block" }}>
+                                <path
+                                    d={cat.path}
+                                    fill="none"
+                                    stroke={selected ? C.ink : C.ink2}
+                                    strokeWidth="1.5"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                />
+                            </svg>
+                            {cat.label}
+                        </button>
+                    )
+                })}
+
+                {/* Kayan Alt Çizgi Göstergesi */}
+                <span
+                    aria-hidden="true"
+                    style={{
+                        position: "absolute",
+                        bottom: -1,
+                        left: indicator.left,
+                        width: indicator.width,
+                        height: 2,
+                        background: C.ink,
+                        borderRadius: 2,
+                        transition: "left 0.55s cubic-bezier(0.65, 0, 0.35, 1), width 0.55s cubic-bezier(0.65, 0, 0.35, 1)",
+                    }}
+                />
+            </div>
+
+            {/* 3 Sütunlu Kart Izgarası */}
+            <div className="pt-sa-grid" key={activeCat}>
+                {filtered.map((item, idx) => (
+                    <a
+                        key={item.slug}
+                        href="/"
+                        className="pt-sa-card"
+                        style={{
+                            color: C.ink,
+                            textDecoration: "none",
+                            animation: `0.7s cubic-bezier(0.2, 0.8, 0.2, 1) ${idx * 70}ms 1 normal both running ssCatIn`,
+                        }}
+                    >
+                        <div
+                            style={{
+                                borderRadius: 16,
+                                overflow: "hidden",
+                                aspectRatio: "4 / 3",
+                                background: "#E8E5DD",
+                                position: "relative",
+                            }}
+                        >
+                            <img
+                                src={item.img}
+                                alt={item.title}
+                                loading="lazy"
+                                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                            />
+                        </div>
+                        <div
+                            style={{
+                                fontSize: 14,
+                                fontWeight: 600,
+                                letterSpacing: "-0.015em",
+                                marginTop: 9,
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                            }}
+                        >
+                            {item.title}
+                        </div>
+                        <div
+                            style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                gap: 8,
+                                fontSize: 13,
+                                color: C.ink2,
+                                marginTop: 2,
+                                whiteSpace: "nowrap",
+                                height: 18,
+                                overflow: "hidden",
+                            }}
+                        >
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{item.district}</span>
+                            <span style={{ fontFamily: MONO, flex: "0 0 auto" }}>{item.price}</span>
+                        </div>
+                    </a>
+                ))}
+
+                {/* Son Kesikli Çizgili Kart */}
+                {activeCat !== "all" ? (
+                    <button
+                        type="button"
+                        onClick={() => setActiveCat("all")}
+                        style={{
+                            boxSizing: "border-box",
+                            overflow: "hidden",
+                            alignSelf: "start",
+                            borderRadius: 16,
+                            border: "1px dashed rgba(16, 17, 20, 0.2)",
+                            background: "transparent",
+                            aspectRatio: "4 / 3",
+                            display: "grid",
+                            placeItems: "center",
+                            textAlign: "center",
+                            color: C.ink2,
+                            fontFamily: SANS,
+                            fontSize: 13.5,
+                            cursor: "pointer",
+                            padding: 16,
+                        }}
+                    >
+                        <span>
+                            {activeCatLabel} kategorisindeki tüm bölgeler bunlar.
+                            <br />
+                            <span style={{ color: C.ink, fontWeight: 600 }}>Tüm bölgeleri gör →</span>
+                        </span>
+                    </button>
+                ) : (
+                    <a
+                        href="/"
+                        style={{
+                            boxSizing: "border-box",
+                            overflow: "hidden",
+                            alignSelf: "start",
+                            borderRadius: 16,
+                            border: "1px dashed rgba(16, 17, 20, 0.2)",
+                            aspectRatio: "4 / 3",
+                            display: "grid",
+                            placeItems: "center",
+                            textAlign: "center",
+                            color: C.ink2,
+                            fontSize: 13.5,
+                            textDecoration: "none",
+                            padding: 16,
+                        }}
+                    >
+                        <span>
+                            Elazığ dışındaki şehirler çok yakında.
+                            <br />
+                            <span style={{ color: C.ink, fontWeight: 600 }}>Hemen taksi çağır →</span>
+                        </span>
+                    </a>
+                )}
+            </div>
+        </section>
+    )
+}
 
 export default function ServiceAreasPage() {
     const [authUser, setAuthUser] = useState<{ fullName?: string; email?: string } | null>(null)
@@ -146,47 +514,10 @@ export default function ServiceAreasPage() {
                 .sa-link:hover { opacity: 1; }
                 .sa-navlinks { display: flex; gap: 24px; align-items: center; }
                 .sa-burger { display: none; }
-                .sa-container {
-                    width: 100%;
-                    max-width: 1060px;
-                    margin: 0 auto;
-                    padding: 48px 24px 76px;
-                    box-sizing: border-box;
-                    flex: 1;
-                }
-                .sa-grid {
-                    display: grid;
-                    grid-template-columns: repeat(3, 1fr);
-                    gap: 16px;
-                    margin-top: 28px;
-                }
-                .sa-card {
-                    padding: 22px;
-                    border-radius: 22px;
-                    background: rgba(255, 255, 255, 0.78);
-                    border: 1px solid rgba(255, 255, 255, 0.92);
-                    box-shadow: 0 18px 40px -22px rgba(16, 17, 24, 0.16), 0 0 0 1px rgba(16, 17, 20, 0.06);
-                    display: flex;
-                    flex-direction: column;
-                    gap: 12px;
-                }
-                .sa-upcoming-grid {
-                    display: grid;
-                    grid-template-columns: repeat(6, 1fr);
-                    gap: 10px;
-                    margin-top: 16px;
-                }
-                @media (max-width: 960px) {
-                    .sa-grid { grid-template-columns: repeat(2, 1fr); }
-                    .sa-upcoming-grid { grid-template-columns: repeat(3, 1fr); }
-                }
                 @media (max-width: 760px) {
                     .sa-nav-wrap { padding: 8px 12px 0; }
                     .sa-navlinks, .sa-desktop-auth { display: none !important; }
                     .sa-burger { display: flex; align-items: center; gap: 8px; }
-                    .sa-container { padding: 34px 18px 56px; }
-                    .sa-grid { grid-template-columns: 1fr; }
-                    .sa-upcoming-grid { grid-template-columns: repeat(2, 1fr); }
                 }
             `}</style>
 
@@ -355,120 +686,8 @@ export default function ServiceAreasPage() {
                 )}
             </div>
 
-            <div className="sa-container">
-                {/* Üst Rozet ve Başlık */}
-                <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: 999, background: "rgba(14, 138, 95, 0.10)", border: "1px solid rgba(14, 138, 95, 0.22)", fontSize: 12, fontWeight: 700, color: C.ok }}>
-                    <span style={{ width: 7, height: 7, borderRadius: 99, background: C.ok, display: "inline-block" }} />
-                    AKTİF HİZMET BÖLGESİ · ELAZIĞ (7/24)
-                </div>
-
-                <h1 style={{ margin: "14px 0 0", fontSize: "clamp(2rem, 4vw, 3rem)", fontWeight: 800, lineHeight: 1.08, letterSpacing: "-0.03em" }}>
-                    Hizmet Verdiğimiz Bölgeler
-                </h1>
-                <p style={{ margin: "14px 0 0", maxWidth: 680, fontSize: 16, lineHeight: 1.6, color: C.ink2 }}>
-                    PayTaksi şu anda <b>Elazığ merkez, tüm mahalleler, havalimanı, hastaneler, üniversite kampüsü ve ilçelerde</b> 7/24 sabit fiyat garantisiyle aktif olarak hizmet vermektedir.
-                </p>
-
-                {/* Elazığ Aktif Bölgeler Grid */}
-                <div className="sa-grid">
-                    {ACTIVE_ZONES.map((z) => (
-                        <div key={z.title} className="sa-card">
-                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                                <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em", color: C.ink }}>{z.title}</div>
-                                <span
-                                    style={{
-                                        fontFamily: MONO,
-                                        fontSize: 11,
-                                        fontWeight: 700,
-                                        padding: "4px 9px",
-                                        borderRadius: 999,
-                                        background: "rgba(58, 58, 244, 0.10)",
-                                        color: C.accent,
-                                        whiteSpace: "nowrap",
-                                    }}
-                                >
-                                    {z.eta}
-                                </span>
-                            </div>
-                            <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5, color: C.ink2 }}>{z.desc}</p>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: "auto", paddingTop: 4 }}>
-                                {z.areas.map((a) => (
-                                    <span
-                                        key={a}
-                                        style={{
-                                            fontSize: 12,
-                                            fontWeight: 600,
-                                            padding: "4px 10px",
-                                            borderRadius: 999,
-                                            background: "rgba(16, 17, 20, 0.05)",
-                                            color: C.ink,
-                                        }}
-                                    >
-                                        {a}
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-
-                {/* Yakında Açılacak Şehirler */}
-                <div
-                    style={{
-                        marginTop: 36,
-                        padding: 26,
-                        borderRadius: 24,
-                        background: "rgba(255, 255, 255, 0.72)",
-                        border: "1px solid rgba(255, 255, 255, 0.92)",
-                        boxShadow: "0 18px 40px -22px rgba(16, 17, 24, 0.14), 0 0 0 1px rgba(16, 17, 20, 0.06)",
-                    }}
-                >
-                    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                        <div>
-                            <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: C.accent, letterSpacing: "0.06em" }}>
-                                GENİŞLEME PLANI
-                            </div>
-                            <h2 style={{ margin: "4px 0 0", fontSize: 21, fontWeight: 800, letterSpacing: "-0.025em" }}>
-                                Çok Yakında Hizmet Vereceğimiz Şehirler
-                            </h2>
-                        </div>
-                        <a
-                            href="/"
-                            style={{
-                                padding: "11px 18px",
-                                borderRadius: 14,
-                                background: C.accent,
-                                color: "#fff",
-                                textDecoration: "none",
-                                fontSize: 13.5,
-                                fontWeight: 700,
-                                boxShadow: "0 10px 22px -8px rgba(58, 58, 244, 0.5)",
-                            }}
-                        >
-                            Elazığ'da Hemen Taksi Çağır →
-                        </a>
-                    </div>
-
-                    <div className="sa-upcoming-grid">
-                        {UPCOMING_CITIES.map((city) => (
-                            <div
-                                key={city.name}
-                                style={{
-                                    padding: "13px 14px",
-                                    borderRadius: 14,
-                                    background: "#FFFFFF",
-                                    border: `1px solid ${C.line}`,
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: 4,
-                                }}
-                            >
-                                <div style={{ fontSize: 14.5, fontWeight: 700, color: C.ink }}>{city.name}</div>
-                                <div style={{ fontSize: 11.5, fontWeight: 600, color: C.ink2 }}>{city.tag}</div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+            <div style={{ flex: 1 }}>
+                <ServiceAreasSection />
             </div>
 
             <Footer />
