@@ -896,10 +896,13 @@ export default function StaysiftHero(props: HeroProps) {
     const [routeInfo, setRouteInfo] = React.useState<{ km: number; min: number }>({ km: 0, min: 0 })
     const [mapPickerOpen, setMapPickerOpen] = React.useState(false)
     const [gpsConfirmMode, setGpsConfirmMode] = React.useState(false)
+    const [gpsLoading, setGpsLoading] = React.useState(false)
     const [mapPickerField, setMapPickerField] = React.useState<"from" | "to">("from")
     const [mapFromLabel, setMapFromLabel] = React.useState("")
     const [mapToLabel, setMapToLabel] = React.useState("")
     const [outOfServiceMsg, setOutOfServiceMsg] = React.useState<string | null>(null)
+    const userGpsCoordRef = useRef<[number, number] | null>(null)
+    const userGpsLabelRef = useRef<string>("")
     const mapPickerFieldRef = useRef<"from" | "to">("from")
     const mapDivRef = useRef<HTMLDivElement>(null)
     const leafletRef = useRef<any>(null)
@@ -952,6 +955,35 @@ export default function StaysiftHero(props: HeroProps) {
                 else sessionStorage.setItem("pt_pv_tracked", "1")
             } catch {}
             if (!alreadyTracked) trackEvent("page_view")
+
+            // Site açılır açılmaz GPS konumunu önceden ısıt ve önbelleğe al (haritayı açmadan hazır olsun)
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    async (pos) => {
+                        const { latitude, longitude } = pos.coords
+                        userGpsCoordRef.current = [latitude, longitude]
+                        if (isCoordInElazig(latitude, longitude)) {
+                            setFromCoord([latitude, longitude])
+                            try {
+                                const res = await fetch(
+                                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=17&accept-language=tr`
+                                )
+                                if (res.ok) {
+                                    const d = await res.json()
+                                    const a = d?.address || {}
+                                    const lbl = [a.road || a.pedestrian || a.neighbourhood || a.suburb, a.suburb || a.town]
+                                        .filter((v, i, arr) => v && arr.indexOf(v) === i)
+                                        .slice(0, 2)
+                                        .join(" · ")
+                                    if (lbl) userGpsLabelRef.current = lbl
+                                }
+                            } catch {}
+                        }
+                    },
+                    () => {},
+                    { enableHighAccuracy: false, maximumAge: 60000, timeout: 8000 }
+                )
+            }
         }
         const token = localStorage.getItem("paytaksi_jwt_token")
         if (!token) return
@@ -1388,11 +1420,24 @@ export default function StaysiftHero(props: HeroProps) {
 
                 // Sadece gerçek GPS izni alındığında haritayı kullanıcının konumuna kaydır; Elazığ dışındaysa hizmet dışı uyarısı ver
                 if (mapPickerFieldRef.current === "from" && navigator.geolocation) {
+                    if (userGpsCoordRef.current && isCoordInElazig(userGpsCoordRef.current[0], userGpsCoordRef.current[1])) {
+                        // Önceden alınmış konum varsa anında odaklan
+                        const [lat0, lng0] = userGpsCoordRef.current
+                        map.setCenter([lat0, lng0], 16)
+                        fromPlacemark.geometry.setCoordinates([lat0, lng0])
+                        setFromCoord([lat0, lng0])
+                        if (userGpsLabelRef.current) setMapFromLabel(userGpsLabelRef.current)
+                    } else if (gpsConfirmMode) {
+                        setGpsLoading(true)
+                    }
+
                     navigator.geolocation.getCurrentPosition(
                         async (pos) => {
                             if (cancelled) return
                             const { latitude, longitude } = pos.coords
+                            userGpsCoordRef.current = [latitude, longitude]
                             if (!isCoordInElazig(latitude, longitude)) {
+                                setGpsLoading(false)
                                 setMapPickerOpen(false)
                                 setOutOfServiceMsg(OUT_OF_ELAZIG_MSG)
                                 return
@@ -1401,10 +1446,17 @@ export default function StaysiftHero(props: HeroProps) {
                             fromPlacemark.geometry.setCoordinates([latitude, longitude])
                             setFromCoord([latitude, longitude])
                             const addr = await resolveAddress(latitude, longitude)
-                            if (!cancelled) setMapFromLabel(addr || "Mevcut Konum")
+                            if (!cancelled) {
+                                const finalAddr = addr || userGpsLabelRef.current || "Mevcut Konum"
+                                userGpsLabelRef.current = finalAddr
+                                setMapFromLabel(finalAddr)
+                                setGpsLoading(false)
+                            }
                         },
-                        () => {},
-                        { enableHighAccuracy: true, timeout: 5000 }
+                        () => {
+                            if (!cancelled) setGpsLoading(false)
+                        },
+                        { enableHighAccuracy: true, maximumAge: 30000, timeout: 8000 }
                     )
                 }
             })
@@ -5701,8 +5753,13 @@ export default function StaysiftHero(props: HeroProps) {
                                         <button
                                             type="button"
                                             className="pt-primary"
-                                            style={{ padding: "16px 18px" }}
+                                            disabled={gpsLoading}
+                                            style={{
+                                                padding: "16px 18px",
+                                                ...(gpsLoading ? { opacity: 0.72, cursor: "wait" } : {}),
+                                            }}
                                             onClick={() => {
+                                                if (gpsLoading) return
                                                 const finalLabel =
                                                     mapFromLabel && !/^\d+\.\d+/.test(mapFromLabel)
                                                         ? mapFromLabel
@@ -5721,13 +5778,17 @@ export default function StaysiftHero(props: HeroProps) {
                                         >
                                             <span style={{ flex: 1 }}>
                                                 <span style={{ display: "block", fontSize: 16.5, fontWeight: 700 }}>
-                                                    Mevcut Konumu Onayla
+                                                    {gpsLoading ? "Konumunuz bulunuyor..." : "Mevcut Konumu Onayla"}
                                                 </span>
                                                 <span style={{ display: "block", fontSize: 12.5, opacity: 0.85, marginTop: 2 }}>
-                                                    {mapFromLabel || "Haritadaki noktanız onaylanacak"}
+                                                    {gpsLoading
+                                                        ? "GPS sinyali alınıyor, lütfen 1-2 sn bekleyin"
+                                                        : mapFromLabel || "Haritadaki noktanız onaylanacak"}
                                                 </span>
                                             </span>
-                                            <span className="pt-badge" style={{ fontSize: 14, padding: "9px 12px" }}>GPS</span>
+                                            <span className="pt-badge" style={{ fontSize: 14, padding: "9px 12px" }}>
+                                                {gpsLoading ? "..." : "GPS"}
+                                            </span>
                                         </button>
                                     ) : (
                                         <button
