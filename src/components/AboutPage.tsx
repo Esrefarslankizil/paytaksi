@@ -15,6 +15,14 @@ const SANS = "'Inter Tight', 'Inter', system-ui, sans-serif"
 export default function AboutPage() {
     const [authUser, setAuthUser] = useState<{ fullName?: string; email?: string } | null>(null)
     const [menuOpen, setMenuOpen] = useState(false)
+    const [scrolled, setScrolled] = useState(false)
+
+    useEffect(() => {
+        const onScroll = () => setScrolled(window.scrollY > 20)
+        onScroll()
+        window.addEventListener("scroll", onScroll, { passive: true })
+        return () => window.removeEventListener("scroll", onScroll)
+    }, [])
 
     const getApiUrl = () => {
         const envUrl = (import.meta as any).env?.VITE_API_URL
@@ -66,16 +74,29 @@ export default function AboutPage() {
                     width: 100%;
                     max-width: 1240px;
                     margin: 0 auto;
-                    padding: 18px 24px 0;
+                    padding: 12px 24px 0;
                     box-sizing: border-box;
-                    position: relative;
+                    position: sticky;
+                    top: 0;
+                    z-index: 60;
                 }
                 .ab-nav {
                     height: 56px;
+                    border-radius: 18px;
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
                     padding: 0 10px 0 16px;
+                    background: rgba(252, 251, 248, 0);
+                    backdrop-filter: none;
+                    box-shadow: none;
+                    transition: background 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+                }
+                .ab-nav.is-scrolled {
+                    background: rgba(252, 251, 248, 0.84);
+                    backdrop-filter: blur(18px) saturate(1.3);
+                    -webkit-backdrop-filter: blur(18px) saturate(1.3);
+                    box-shadow: rgba(16, 17, 20, 0.06) 0px 0px 0px 1px, rgba(30, 28, 20, 0.35) 0px 10px 30px -18px;
                 }
                 .ab-link {
                     color: ${C.ink};
@@ -144,7 +165,7 @@ export default function AboutPage() {
 
             {/* Üst Menü (Ana sayfa ile birebir aynı şablon) */}
             <div className="ab-nav-wrap">
-                <nav className="ab-nav" aria-label="Main">
+                <nav className={`ab-nav${scrolled ? " is-scrolled" : ""}`} aria-label="Main">
                     <a
                         href="/"
                         style={{

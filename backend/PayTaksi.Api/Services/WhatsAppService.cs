@@ -52,7 +52,12 @@ public class WhatsAppService
         }
 
         var url = $"https://graph.facebook.com/{apiVersion}/{phoneNumberId}/messages";
-        var pickupWithMap = mapLink is not null ? $"{ride.PickupAddress} ({mapLink})" : ride.PickupAddress;
+        static string CleanTemplateParam(string? s) =>
+            string.IsNullOrWhiteSpace(s)
+                ? "-"
+                : System.Text.RegularExpressions.Regex.Replace(s, @"[\r\n\t]+", " ").Replace("    ", " ").Trim();
+
+        var pickupWithMap = CleanTemplateParam(mapLink is not null ? $"{ride.PickupAddress} ({mapLink})" : ride.PickupAddress);
         var templateName = _config["WhatsApp:TemplateName"] ?? "yeni_taksi_cagrisi";
         var templateLang = _config["WhatsApp:TemplateLang"] ?? "tr";
 
@@ -74,9 +79,9 @@ public class WhatsAppService
                         parameters = new object[]
                         {
                             new { type = "text", text = pickupWithMap },
-                            new { type = "text", text = ride.DestinationAddress },
-                            new { type = "text", text = ride.CustomerPhone },
-                            new { type = "text", text = ride.PaymentType },
+                            new { type = "text", text = CleanTemplateParam(ride.DestinationAddress) },
+                            new { type = "text", text = CleanTemplateParam(ride.CustomerPhone) },
+                            new { type = "text", text = CleanTemplateParam(ride.PaymentType) },
                         }
                     }
                 }

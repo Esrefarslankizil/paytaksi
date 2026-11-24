@@ -15,6 +15,14 @@ const SANS = "'Inter Tight', 'Inter', system-ui, sans-serif"
 export default function PartnerPage() {
     const [authUser, setAuthUser] = useState<{ fullName?: string; email?: string } | null>(null)
     const [menuOpen, setMenuOpen] = useState(false)
+    const [scrolled, setScrolled] = useState(false)
+
+    useEffect(() => {
+        const onScroll = () => setScrolled(window.scrollY > 20)
+        onScroll()
+        window.addEventListener("scroll", onScroll, { passive: true })
+        return () => window.removeEventListener("scroll", onScroll)
+    }, [])
     const [form, setForm] = useState({ name: "", phone: "", plate: "" })
     const [sent, setSent] = useState(false)
 
@@ -69,16 +77,29 @@ export default function PartnerPage() {
                     width: 100%;
                     max-width: 1240px;
                     margin: 0 auto;
-                    padding: 18px 24px 0;
+                    padding: 12px 24px 0;
                     box-sizing: border-box;
-                    position: relative;
+                    position: sticky;
+                    top: 0;
+                    z-index: 60;
                 }
                 .pp-nav {
                     height: 56px;
+                    border-radius: 18px;
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
                     padding: 0 10px 0 16px;
+                    background: rgba(252, 251, 248, 0);
+                    backdrop-filter: none;
+                    box-shadow: none;
+                    transition: background 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+                }
+                .pp-nav.is-scrolled {
+                    background: rgba(252, 251, 248, 0.84);
+                    backdrop-filter: blur(18px) saturate(1.3);
+                    -webkit-backdrop-filter: blur(18px) saturate(1.3);
+                    box-shadow: rgba(16, 17, 20, 0.06) 0px 0px 0px 1px, rgba(30, 28, 20, 0.35) 0px 10px 30px -18px;
                 }
                 .pp-link {
                     color: ${C.ink};
@@ -206,7 +227,7 @@ export default function PartnerPage() {
 
             {/* Üst Menü */}
             <div className="pp-nav-wrap">
-                <nav className="pp-nav" aria-label="Main">
+                <nav className={`pp-nav${scrolled ? " is-scrolled" : ""}`} aria-label="Main">
                     <a
                         href="/"
                         style={{

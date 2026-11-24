@@ -872,6 +872,7 @@ export default function StaysiftHero(props: HeroProps) {
     const [sug, setSug] = React.useState<any[]>([])
     const [sugField, setSugField] = React.useState<"from" | "to">("to")
     const [menuOpen, setMenuOpen] = React.useState(false)
+    const [scrolled, setScrolled] = React.useState(false)
     const [findingTaxi, setFindingTaxi] = React.useState(false)
     const [callModalOpen, setCallModalOpen] = React.useState(false)
     const [tariffModalOpen, setTariffModalOpen] = React.useState(false)
@@ -974,6 +975,13 @@ export default function StaysiftHero(props: HeroProps) {
     const userInitial = authUser
         ? (authUser.fullName || authUser.email || "U").trim().charAt(0).toLocaleUpperCase("tr-TR")
         : ""
+
+    useEffect(() => {
+        const onScroll = () => setScrolled(window.scrollY > 20)
+        onScroll()
+        window.addEventListener("scroll", onScroll, { passive: true })
+        return () => window.removeEventListener("scroll", onScroll)
+    }, [])
 
     useEffect(() => {
         if (!compactNav && menuOpen) setMenuOpen(false)
@@ -3412,11 +3420,12 @@ export default function StaysiftHero(props: HeroProps) {
                 <div
                     ref={menuWrapRef}
                     style={{
-                        position: narrow ? "relative" : "absolute",
-                        top: narrow ? 0 : 18,
+                        position: "fixed",
+                        top: narrow ? 0 : 12,
                         left: narrow ? 0 : 24,
                         right: narrow ? 0 : 24,
-                        zIndex: 25,
+                        zIndex: 60,
+                        pointerEvents: "none",
                     }}
                 >
                     <nav
@@ -3424,17 +3433,22 @@ export default function StaysiftHero(props: HeroProps) {
                         style={{
                             position: "relative",
                             height: 56,
-                            margin: narrow ? "8px 12px 0px" : "0",
+                            margin: narrow ? "8px 12px 0px" : "0 auto",
+                            maxWidth: 1240,
                             borderRadius: 18,
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "space-between",
                             padding: "0px 10px 0px 16px",
-                            background: "rgba(252, 251, 248, 0)",
-                            backdropFilter: "none",
-                            boxShadow: "none",
+                            pointerEvents: "auto",
+                            background: scrolled ? "rgba(252, 251, 248, 0.84)" : "rgba(252, 251, 248, 0)",
+                            backdropFilter: scrolled ? "blur(18px) saturate(1.3)" : "none",
+                            WebkitBackdropFilter: scrolled ? "blur(18px) saturate(1.3)" : "none",
+                            boxShadow: scrolled
+                                ? "rgba(16, 17, 20, 0.06) 0px 0px 0px 1px, rgba(30, 28, 20, 0.35) 0px 10px 30px -18px"
+                                : "none",
                             transition:
-                                "background 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)",
+                                "background 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), backdrop-filter 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)",
                         }}
                     >
                         <a
@@ -4605,7 +4619,21 @@ export default function StaysiftHero(props: HeroProps) {
                         "Elysium Park AVM"
                     const rawFare = 50 + routeInfo.km * 45
                     const basePrice = Math.max(250, Math.round(rawFare / 5) * 5)
-                    const memberPrice = Math.round(basePrice * 0.85)
+                    const rawMemberPrice = Math.round(basePrice * 0.85)
+                    // 10 TL yukarı yuvarlama (ör. 211 -> 220, 213 -> 220, 250 -> 250)
+                    const memberPrice = Math.max(210, Math.ceil(rawMemberPrice / 10) * 10)
+                    const SHOPIER_LINKS: Record<number, string> = {
+                        210: "https://www.shopier.com/paytaksi/53297191",
+                        220: "https://www.shopier.com/paytaksi/53297313",
+                    }
+                    const getShopierUrl = (price: number) => {
+                        if (SHOPIER_LINKS[price]) return SHOPIER_LINKS[price]
+                        const tiers = Object.keys(SHOPIER_LINKS)
+                            .map(Number)
+                            .sort((a, b) => a - b)
+                        const match = tiers.find((t) => t >= price) ?? tiers[tiers.length - 1]
+                        return SHOPIER_LINKS[match]
+                    }
                     const CASH_COOLDOWN_KEY = "paytaksi_cash_cooldown_until"
                     const getCashCooldownMin = () => {
                         try {
@@ -4629,17 +4657,17 @@ export default function StaysiftHero(props: HeroProps) {
                         trackEvent("ride_completed")
                         const destMapLink = `https://maps.google.com/?q=${toCoord[0].toFixed(6)},${toCoord[1].toFixed(6)}`
                         const ridePayload = {
-                            pickupAddress: fromName,
+                            pickupAddress: fromName.replace(/[\r\n\t]+/g, " ").trim(),
                             pickupLat: fromCoord[0],
                             pickupLng: fromCoord[1],
-                            destinationAddress: `${toName}\n🗺️ *Varış Konumu:* ${destMapLink}`,
+                            destinationAddress: `${toName.replace(/[\r\n\t]+/g, " ").trim()} (${destMapLink})`,
                             destinationLat: toCoord[0],
                             destinationLng: toCoord[1],
                             customerPhone:
                                 mode === "cash"
                                     ? cashPhone
                                     : authUser?.phoneNumber || authUser?.fullName || "Üye Hesabı",
-                            paymentType: mode === "cash" ? "Nakit" : "Cüzdan",
+                            paymentType: mode === "cash" ? "Nakit" : "Online Kart",
                         }
                         const apiUrl = getApiUrl()
                         fetch(`${apiUrl}/api/rides/request`, {
@@ -4950,7 +4978,10 @@ export default function StaysiftHero(props: HeroProps) {
                                                         return
                                                     }
                                                     trackEvent("online_pay_click")
-                                                    setPhoneErr("Online kartlı ödeme altyapısı onay sürecinde. Şimdilik bir önceki ekrandan Nakitle devam edebilirsiniz.")
+                                                    const payUrl = getShopierUrl(memberPrice)
+                                                    if (payUrl) {
+                                                        window.open(payUrl, "_blank", "noopener,noreferrer")
+                                                    }
                                                 }}
                                             >
                                                 <span style={{ flex: 1, minWidth: 0 }}>
