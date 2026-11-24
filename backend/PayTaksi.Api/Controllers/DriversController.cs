@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PayTaksi.Api.Data;
@@ -15,13 +17,53 @@ public record UpdateScheduleDto(string ShiftStart, string ShiftEnd, bool? IsEnab
 public class DriversController : ControllerBase
 {
     private readonly AppDbContext _db;
-    public DriversController(AppDbContext db) => _db = db;
+    private readonly UserManager<ApplicationUser> _users;
+
+    public DriversController(AppDbContext db, UserManager<ApplicationUser> users)
+    {
+        _db = db;
+        _users = users;
+    }
+
+    private static string DigitsOnly(string? s) =>
+        string.IsNullOrWhiteSpace(s) ? "" : new string(s.Where(char.IsDigit).ToArray());
+
+    private static bool PhonesMatch(string? a, string? b)
+    {
+        var da = DigitsOnly(a);
+        var db = DigitsOnly(b);
+        if (da.Length < 10 || db.Length < 10) return false;
+        return da[^10..] == db[^10..];
+    }
+
+    private async Task<bool> CanAccessDriverAsync(Driver d)
+    {
+        if (User.IsInRole(AppRoles.Admin)) return true;
+        var uid = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(uid)) return false;
+        var u = await _users.FindByIdAsync(uid);
+        if (u is null) return false;
+        if (PhonesMatch(u.PhoneNumber, d.Phone)) return true;
+        return string.Equals(u.FullName?.Trim(), d.FullName?.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
 
     [HttpGet]
     public async Task<IActionResult> List()
     {
         var now = DateTime.Now;
         var drivers = await _db.Drivers.OrderBy(d => d.Id).ToListAsync();
+
+        if (!User.IsInRole(AppRoles.Admin))
+        {
+            var uid = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var u = string.IsNullOrEmpty(uid) ? null : await _users.FindByIdAsync(uid);
+            drivers = u is null
+                ? new List<Driver>()
+                : drivers.Where(d =>
+                    PhonesMatch(u.PhoneNumber, d.Phone) ||
+                    string.Equals(u.FullName?.Trim(), d.FullName?.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
         return Ok(drivers.Select(d => new
         {
             d.Id,
@@ -40,6 +82,7 @@ public class DriversController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = AppRoles.Admin)]
     public async Task<IActionResult> Create(CreateDriverDto dto)
     {
         var driver = new Driver
@@ -61,6 +104,7 @@ public class DriversController : ControllerBase
     {
         var d = await _db.Drivers.FindAsync(id);
         if (d is null) return NotFound();
+        if (!await CanAccessDriverAsync(d)) return Forbid();
         d.ShiftStart = TimeOnly.Parse(dto.ShiftStart);
         d.ShiftEnd = TimeOnly.Parse(dto.ShiftEnd);
         if (dto.IsEnabled.HasValue) d.IsEnabled = dto.IsEnabled.Value;
@@ -74,6 +118,7 @@ public class DriversController : ControllerBase
     {
         var d = await _db.Drivers.FindAsync(id);
         if (d is null) return NotFound();
+        if (!await CanAccessDriverAsync(d)) return Forbid();
         d.PausedUntil = d.NextShiftStartAfter(DateTime.Now);
         await _db.SaveChangesAsync();
         return Ok(new { message = "Sürücü bugünlük kapatıldı.", pausedUntil = d.PausedUntil });
@@ -85,6 +130,7 @@ public class DriversController : ControllerBase
     {
         var d = await _db.Drivers.FindAsync(id);
         if (d is null) return NotFound();
+        if (!await CanAccessDriverAsync(d)) return Forbid();
         d.PausedUntil = null;
         d.IsBusy = false;
         await _db.SaveChangesAsync();

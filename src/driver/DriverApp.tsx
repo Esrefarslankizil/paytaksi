@@ -276,37 +276,40 @@ export default function DriverApp() {
                     </a>
 
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        {drivers.length > 1 && (
-                            <select
-                                aria-label="Sürücü seç"
-                                value={driverId}
-                                onChange={(e) => {
-                                    const id = Number(e.target.value)
-                                    setDriverId(id)
-                                    const found = drivers.find((d) => d.id === id)
-                                    if (found) {
-                                        setShiftStart(found.shiftStart)
-                                        setShiftEnd(found.shiftEnd)
-                                    }
-                                }}
-                                style={{
-                                    border: `1px solid ${C.line}`,
-                                    background: "#fff",
-                                    borderRadius: 999,
-                                    padding: "6px 12px",
-                                    fontFamily: SANS,
-                                    fontSize: 13,
-                                    fontWeight: 500,
-                                    color: C.ink,
-                                }}
-                            >
-                                {drivers.map((d) => (
-                                    <option key={d.id} value={d.id}>
-                                        {d.fullName} · {d.plate}
-                                    </option>
-                                ))}
-                            </select>
-                        )}
+                        <span
+                            style={{
+                                border: `1px solid ${C.line}`,
+                                background: "#fff",
+                                borderRadius: 999,
+                                padding: "6px 12px",
+                                fontFamily: SANS,
+                                fontSize: 13,
+                                fontWeight: 600,
+                                color: C.ink,
+                            }}
+                        >
+                            {driver ? `${driver.fullName} · ${driver.plate}` : driverUser.fullName}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                localStorage.removeItem(TOKEN_KEY)
+                                setDriverUser(null)
+                            }}
+                            style={{
+                                border: `1px solid ${C.line}`,
+                                background: "rgba(255,255,255,0.7)",
+                                borderRadius: 999,
+                                padding: "6px 12px",
+                                fontFamily: SANS,
+                                fontSize: 12.5,
+                                fontWeight: 600,
+                                color: C.ink2,
+                                cursor: "pointer",
+                            }}
+                        >
+                            Çıkış
+                        </button>
                         <span
                             style={{
                                 display: "inline-flex",
