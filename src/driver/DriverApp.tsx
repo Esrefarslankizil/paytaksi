@@ -710,61 +710,121 @@ export default function DriverApp() {
                     </div>
                 )}
 
-                {/* 3. SEKME: KAZANÇ ÖZETİ (Admin analitikteki beyaz fiş kart formatıyla aynı) */}
-                {tab === "earnings" && (
-                    <div style={{ marginTop: 22 }}>
-                        <div className="dr-head">GÜNLÜK ÖZET</div>
-                        <h1 style={{ margin: "4px 0 16px", fontSize: 30, fontWeight: 600, letterSpacing: "-0.04em" }}>
-                            Kazanç & Yolculuklar
-                        </h1>
-                        <div className="dr-white" style={{ maxWidth: 440 }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                                <div>
-                                    <span style={{ fontFamily: MONO, fontSize: 26, fontWeight: 500, letterSpacing: "-0.04em" }}>
-                                        ₺{(myRides.length * 200).toLocaleString("tr-TR")}
-                                    </span>{" "}
-                                    <span style={{ fontSize: 13, color: C.ink2 }}>tahmini ciro</span>
-                                </div>
-                                <span style={{ fontFamily: MONO, fontSize: 13 }}>{myRides.length} çağrı</span>
-                            </div>
+                {/* 3. SEKME: KAZANÇ ÖZETİ (Ana site cam/pt-tile tasarım diliyle tam uyumlu) */}
+                {tab === "earnings" && (() => {
+                    const gross = myRides.length * 250
+                    const comm = Math.round(gross * 0.05)
+                    const net = gross - comm
+                    return (
+                        <div style={{ marginTop: 22 }}>
+                            <div className="dr-head">GÜNLÜK ÖZET</div>
+                            <h1 style={{ margin: "4px 0 18px", fontSize: 30, fontWeight: 700, letterSpacing: "-0.04em" }}>
+                                Kazanç & Yolculuklar
+                            </h1>
 
                             <div
                                 style={{
-                                    display: "grid",
-                                    gridTemplateColumns: "1fr 1fr",
-                                    border: `1px solid ${C.line}`,
-                                    borderRadius: 14,
-                                    marginTop: 14,
-                                    overflow: "hidden",
+                                    maxWidth: 520,
+                                    borderRadius: 28,
+                                    padding: "24px 22px 22px",
+                                    background: "rgba(255, 255, 255, 0.78)",
+                                    backdropFilter: "blur(24px) saturate(1.4)",
+                                    WebkitBackdropFilter: "blur(24px) saturate(1.4)",
+                                    border: "1px solid rgba(255, 255, 255, 0.94)",
+                                    boxShadow: "0 28px 64px -26px rgba(16, 17, 24, 0.24), inset 0 1px 0 #fff, 0 0 0 1px rgba(16, 17, 20, 0.05)",
                                 }}
                             >
-                                <div style={{ padding: "9px 12px" }}>
-                                    <div className="dr-head">Nakit</div>
-                                    <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 600, marginTop: 2 }}>{cashCount} çağrı</div>
+                                {/* Üst Net Kazanç Hero Alanı */}
+                                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                                    <div>
+                                        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 700, color: C.ok, letterSpacing: "0.03em", textTransform: "uppercase" }}>
+                                            <span style={{ width: 7, height: 7, borderRadius: 99, background: C.ok, display: "inline-block" }} />
+                                            Net Sürücü Kazancı
+                                        </div>
+                                        <div style={{ fontFamily: MONO, fontSize: 36, fontWeight: 700, letterSpacing: "-0.045em", color: C.ink, marginTop: 4, lineHeight: 1.05 }}>
+                                            ₺{net.toLocaleString("tr-TR")}
+                                        </div>
+                                    </div>
+                                    <span
+                                        style={{
+                                            fontFamily: MONO,
+                                            fontSize: 12,
+                                            fontWeight: 600,
+                                            padding: "6px 12px",
+                                            borderRadius: 999,
+                                            background: "rgba(58, 58, 244, 0.09)",
+                                            color: C.accent,
+                                            border: "1px solid rgba(58, 58, 244, 0.16)",
+                                            whiteSpace: "nowrap",
+                                        }}
+                                    >
+                                        {myRides.length} yolculuk
+                                    </span>
                                 </div>
-                                <div style={{ padding: "9px 12px", borderLeft: `1px solid ${C.line}` }}>
-                                    <div className="dr-head">Cüzdan</div>
-                                    <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 600, marginTop: 2 }}>{walletCount} çağrı</div>
-                                </div>
-                            </div>
 
-                            <div style={{ height: 1, background: C.line, margin: "14px 0 8px" }} />
-                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "5px 0" }}>
-                                <span style={{ color: C.ink2 }}>Brüt Tutar</span>
-                                <span style={{ fontFamily: MONO }}>₺{(myRides.length * 200).toLocaleString("tr-TR")}</span>
-                            </div>
-                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "5px 0" }}>
-                                <span style={{ color: C.ink2 }}>Platform Komisyonu (%15)</span>
-                                <span style={{ fontFamily: MONO }}>-₺{Math.round(myRides.length * 200 * 0.15).toLocaleString("tr-TR")}</span>
-                            </div>
-                            <div style={{ height: 1, background: C.line, margin: "8px 0 0" }} />
-                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 600, padding: "12px 0 0" }}>
-                                <span>Net Kazanç</span>
-                                <span style={{ fontFamily: MONO }}>₺{Math.round(myRides.length * 200 * 0.85).toLocaleString("tr-TR")}</span>
+                                {/* Ödeme Dağılımı (2 cam kutucuk) */}
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 18 }}>
+                                    <div
+                                        style={{
+                                            padding: "13px 14px",
+                                            borderRadius: 16,
+                                            background: "rgba(255, 255, 255, 0.72)",
+                                            border: "1px solid rgba(16, 17, 20, 0.07)",
+                                            boxShadow: "inset 0 1px 0 #fff",
+                                        }}
+                                    >
+                                        <div className="dr-head">Araçta Nakit</div>
+                                        <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 700, color: C.ink, marginTop: 4 }}>
+                                            {cashCount} <span style={{ fontSize: 12, fontWeight: 500, color: C.ink2 }}>çağrı</span>
+                                        </div>
+                                    </div>
+                                    <div
+                                        style={{
+                                            padding: "13px 14px",
+                                            borderRadius: 16,
+                                            background: "rgba(255, 255, 255, 0.72)",
+                                            border: "1px solid rgba(16, 17, 20, 0.07)",
+                                            boxShadow: "inset 0 1px 0 #fff",
+                                        }}
+                                    >
+                                        <div className="dr-head">Online Kart</div>
+                                        <div style={{ fontFamily: MONO, fontSize: 18, fontWeight: 700, color: C.ink, marginTop: 4 }}>
+                                            {walletCount} <span style={{ fontSize: 12, fontWeight: 500, color: C.ink2 }}>çağrı</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Hesap Dökümü */}
+                                <div
+                                    style={{
+                                        marginTop: 14,
+                                        padding: "14px 16px",
+                                        borderRadius: 16,
+                                        background: "rgba(16, 17, 20, 0.03)",
+                                        border: "1px solid rgba(16, 17, 20, 0.06)",
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        gap: 9,
+                                    }}
+                                >
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5 }}>
+                                        <span style={{ color: C.ink2 }}>Brüt Yolculuk Tutarı</span>
+                                        <span style={{ fontFamily: MONO, fontWeight: 600, color: C.ink }}>₺{gross.toLocaleString("tr-TR")}</span>
+                                    </div>
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5 }}>
+                                        <span style={{ color: C.ink2 }}>Platform Komisyonu (%5)</span>
+                                        <span style={{ fontFamily: MONO, fontWeight: 600, color: "#B3261E" }}>-₺{comm.toLocaleString("tr-TR")}</span>
+                                    </div>
+                                    <div style={{ height: 1, background: "rgba(16, 17, 20, 0.08)", margin: "2px 0" }} />
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: 15.5, fontWeight: 700 }}>
+                                        <span style={{ color: C.ink }}>Net Kazanç (%95)</span>
+                                        <span style={{ fontFamily: MONO, fontSize: 17, color: C.ok }}>₺{net.toLocaleString("tr-TR")}</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )
+                })()}
             </div>
         </div>
     )

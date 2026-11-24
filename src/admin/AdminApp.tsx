@@ -608,8 +608,8 @@ export default function AdminApp() {
     const dayLabel = `${aSel + 1} ${MONTHS[aMonth]} ${now.getFullYear()}`
 
     const activeDriverCount = drivers.filter((d) => d.isActiveNow).length
-    const grossRevenue = rides.length * 200
-    const commission = Math.round(grossRevenue * 0.15)
+    const grossRevenue = rides.length * 250
+    const commission = Math.round(grossRevenue * 0.05)
     const cashRides = rides.filter((r) => r.paymentType === "Nakit").length
 
     const pageData = {
