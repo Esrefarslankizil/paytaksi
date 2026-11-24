@@ -682,16 +682,11 @@ export default function ServiceAreasPage() {
                     align-items: center;
                     justify-content: space-between;
                     padding: 0 10px 0 16px;
-                    background: rgba(252, 251, 248, 0);
-                    backdrop-filter: none;
-                    box-shadow: none;
-                    transition: background 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-                }
-                .sa-nav.is-scrolled {
                     background: rgba(252, 251, 248, 0.84);
                     backdrop-filter: blur(18px) saturate(1.3);
                     -webkit-backdrop-filter: blur(18px) saturate(1.3);
                     box-shadow: rgba(16, 17, 20, 0.06) 0px 0px 0px 1px, rgba(30, 28, 20, 0.35) 0px 10px 30px -18px;
+                    transition: background 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
                 }
                 .sa-link {
                     color: ${C.ink};
