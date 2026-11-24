@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PayTaksi.Api.Data;
@@ -10,6 +11,7 @@ public record UpdateScheduleDto(string ShiftStart, string ShiftEnd, bool? IsEnab
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = $"{AppRoles.Taksici},{AppRoles.Admin}")]
 public class DriversController : ControllerBase
 {
     private readonly AppDbContext _db;

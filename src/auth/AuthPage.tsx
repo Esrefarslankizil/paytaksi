@@ -810,38 +810,6 @@ export default function AuthPage({
                                 </div>
                             )}
 
-                            {/* Hesap türü (Yolcu / Taksici) — fiyat kutusu yapısında */}
-                            {mode === "register" && !requireRole && (
-                                <div className="pt-tile" style={{ marginTop: 10, padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                                    <div>
-                                        <div className="pt-label">Hesap türü</div>
-                                        <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.02em", marginTop: 2 }}>{role}</div>
-                                    </div>
-                                    <div style={{ display: "inline-flex", gap: 4, padding: 3, borderRadius: 999, background: "rgba(58,58,244,0.08)", border: "1px solid rgba(58,58,244,0.16)" }}>
-                                        {(["Yolcu", "Taksici"] as const).map((r) => (
-                                            <button
-                                                key={r}
-                                                type="button"
-                                                onClick={() => setRole(r)}
-                                                style={{
-                                                    border: 0,
-                                                    cursor: "pointer",
-                                                    padding: "6px 12px",
-                                                    borderRadius: 999,
-                                                    fontFamily: SANS,
-                                                    fontSize: 12.5,
-                                                    fontWeight: 600,
-                                                    background: role === r ? C.accent : "transparent",
-                                                    color: role === r ? "#fff" : C.ink2,
-                                                }}
-                                            >
-                                                {r}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
                             {/* E-posta */}
                             <label className="pt-tile pt-field" style={{ marginTop: mode === "register" && !requireRole ? 10 : 18 }}>
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.ink2} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none" }}>
@@ -987,9 +955,11 @@ export default function AuthPage({
                                         <span style={{ display: "block", fontSize: 12, opacity: 0.82, marginTop: 2 }}>
                                             {requireRole === "Admin"
                                                 ? "Yönetici yetkisi doğrulanır"
-                                                : mode === "login"
-                                                    ? "Üyelere %15 indirimle taksi çağır"
-                                                    : "Saniyeler içinde üye ol, %15 indirim kazan"}
+                                                : requireRole === "Taksici"
+                                                    ? "Yalnızca yetkili Taksici hesapları giriş yapabilir"
+                                                    : mode === "login"
+                                                        ? "Üyelere %15 indirimle taksi çağır"
+                                                        : "Saniyeler içinde üye ol, %15 indirim kazan"}
                                         </span>
                                     </span>
                                     <span className="pt-badge">-%15</span>

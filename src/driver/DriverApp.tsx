@@ -3,6 +3,7 @@
 // Doğrudan .NET API (/api/drivers ve /api/rides) ile canlı çalışır.
 import * as React from "react"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import AuthPage, { AuthUser, TOKEN_KEY, getApiBase } from "../auth/AuthPage"
 
 const C = {
     bg: "#F1EFEA",
@@ -67,16 +68,29 @@ function Icon({ name, color }: { name: string; color: string }) {
 }
 
 export default function DriverApp() {
-    const envUrl = (import.meta as any).env?.VITE_API_URL
-    const h = window.location.hostname
-    const apiBase = envUrl
-        ? String(envUrl).replace(/\/$/, "")
-        : h === "localhost" || h.startsWith("10.") || h.startsWith("192.168.") || h.startsWith("127.")
-            ? `http://${h}:5080`
-            : "https://api.paytaksi.com.tr"
+    const apiBase = getApiBase()
+    const [driverUser, setDriverUser] = useState<AuthUser | null>(null)
+    const [authChecking, setAuthChecking] = useState(true)
     const [tab, setTab] = useState<TabKey>(() => tabFromPath(window.location.pathname))
     const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({})
     const [ind, setInd] = useState({ left: 0, width: 0 })
+
+    useEffect(() => {
+        const token = localStorage.getItem(TOKEN_KEY)
+        if (!token || token.startsWith("google_oauth_")) {
+            setAuthChecking(false)
+            return
+        }
+        fetch(`${apiBase}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((u: AuthUser | null) => {
+                if (u && (u.roles.includes("Taksici") || u.roles.includes("Admin"))) {
+                    setDriverUser(u)
+                }
+            })
+            .catch(() => {})
+            .finally(() => setAuthChecking(false))
+    }, [])
 
     const [drivers, setDrivers] = useState<DriverItem[]>([])
     const [driverId, setDriverId] = useState<number>(1)
@@ -95,10 +109,12 @@ export default function DriverApp() {
     }
 
     const loadAll = async () => {
+        const token = localStorage.getItem(TOKEN_KEY)
+        const authHeaders = token ? { Authorization: `Bearer ${token}` } : {}
         try {
             const [dRes, rRes] = await Promise.all([
-                fetch(`${apiBase}/api/drivers`),
-                fetch(`${apiBase}/api/rides`),
+                fetch(`${apiBase}/api/drivers`, { headers: authHeaders }),
+                fetch(`${apiBase}/api/rides`, { headers: authHeaders }),
             ])
             if (!dRes.ok || !rRes.ok) throw new Error()
             const dList: DriverItem[] = await dRes.json()
@@ -118,10 +134,11 @@ export default function DriverApp() {
     }
 
     useEffect(() => {
+        if (!driverUser) return
         loadAll()
         const t = setInterval(loadAll, 8000)
         return () => clearInterval(t)
-    }, [driverId])
+    }, [driverId, driverUser])
 
     const go = (t: (typeof TABS)[number]) => {
         window.history.pushState({}, "", t.path)
@@ -142,7 +159,19 @@ export default function DriverApp() {
         place()
         window.addEventListener("resize", place)
         return () => window.removeEventListener("resize", place)
-    }, [tab])
+    }, [tab, driverUser])
+
+    if (authChecking) {
+        return (
+            <div style={{ width: "100vw", height: "100dvh", display: "grid", placeItems: "center", background: C.bg, fontFamily: SANS, color: C.ink2 }}>
+                Sürücü yetkisi kontrol ediliyor...
+            </div>
+        )
+    }
+
+    if (!driverUser) {
+        return <AuthPage initialMode="login" requireRole="Taksici" onAuthenticated={(u) => setDriverUser(u)} />
+    }
 
     const togglePauseToday = async () => {
         if (!driver) return
@@ -150,7 +179,11 @@ export default function DriverApp() {
         try {
             const paused = Boolean(driver.pausedUntil && new Date(driver.pausedUntil) > new Date())
             const ep = paused ? "resume" : "pause-today"
-            const res = await fetch(`${apiBase}/api/drivers/${driver.id}/${ep}`, { method: "POST" })
+            const token = localStorage.getItem(TOKEN_KEY)
+            const res = await fetch(`${apiBase}/api/drivers/${driver.id}/${ep}`, {
+                method: "POST",
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            })
             if (res.ok) {
                 await loadAll()
                 flash(paused ? "Vardiyan tekrar aktif edildi." : "Bugünlük kapatıldı, yarın otomatik açılacak.")
@@ -164,9 +197,13 @@ export default function DriverApp() {
         if (!driver) return
         setSaving(true)
         try {
+            const token = localStorage.getItem(TOKEN_KEY)
             const res = await fetch(`${apiBase}/api/drivers/${driver.id}/schedule`, {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
                 body: JSON.stringify({ shiftStart, shiftEnd, isEnabled: true }),
             })
             if (res.ok) {

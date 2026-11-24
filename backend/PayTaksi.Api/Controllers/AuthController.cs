@@ -50,12 +50,11 @@ public class AuthController : ControllerBase
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    /// <summary>CREATE: Yolcu veya Taksici olarak hesap oluşturur ve anında JWT döner.</summary>
+    /// <summary>CREATE: Sadece Yolcu olarak hesap oluşturur ve anında JWT döner (Taksici rolü sadece Admin tarafından atanır).</summary>
     [HttpPost("register")]
     public async Task<IActionResult> Register(RegisterDto dto)
     {
-        if (dto.Role != AppRoles.Yolcu && dto.Role != AppRoles.Taksici)
-            return BadRequest(new { error = "Rol sadece 'Yolcu' veya 'Taksici' olabilir." });
+        var assignedRole = AppRoles.Yolcu;
 
         var user = new ApplicationUser
         {
@@ -68,7 +67,7 @@ public class AuthController : ControllerBase
         if (!result.Succeeded)
             return BadRequest(new { error = string.Join(" ", result.Errors.Select(e => e.Description)) });
 
-        await _users.AddToRoleAsync(user, dto.Role);
+        await _users.AddToRoleAsync(user, assignedRole);
         var roles = await _users.GetRolesAsync(user);
         return Ok(new
         {
@@ -173,7 +172,7 @@ public class AuthController : ControllerBase
         var user = await _users.FindByEmailAsync(email);
         if (user is null)
         {
-            var targetRole = dto.Role == AppRoles.Taksici ? AppRoles.Taksici : AppRoles.Yolcu;
+            var targetRole = AppRoles.Yolcu;
             user = new ApplicationUser
             {
                 UserName = email,

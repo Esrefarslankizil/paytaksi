@@ -547,9 +547,9 @@ export default function AdminApp() {
         const auth = { headers: { Authorization: `Bearer ${token}` } }
         try {
             const [anRes, rRes, dRes, uRes] = await Promise.all([
-                fetch(`${base}/api/analytics/summary?year=${now.getFullYear()}&month=${aMonth + 1}`),
-                fetch(`${base}/api/rides`),
-                fetch(`${base}/api/drivers`),
+                fetch(`${base}/api/analytics/summary?year=${now.getFullYear()}&month=${aMonth + 1}`, auth),
+                fetch(`${base}/api/rides`, auth),
+                fetch(`${base}/api/drivers`, auth),
                 fetch(`${base}/api/users`, auth),
             ])
             if (anRes.ok) {
