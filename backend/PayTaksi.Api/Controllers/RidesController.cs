@@ -84,12 +84,16 @@ public class RidesController : ControllerBase
             CustomerPhone = dto.CustomerPhone,
             PaymentType = dto.PaymentType,
             AssignedDriverId = activeDriver?.Id,
-            Status = activeDriver is null ? "Aktif Sürücü Yok" : "Sürücüye İletildi",
+            Status = activeDriver is null ? "Aktif Sürücü Yok" : "Yolculukta (Meşgul)",
             CreatedAt = now,
         };
 
         _db.RideRequests.Add(ride);
-        if (activeDriver is not null) activeDriver.LastDispatchedAt = now;
+        if (activeDriver is not null)
+        {
+            activeDriver.LastDispatchedAt = now;
+            activeDriver.IsBusy = true;
+        }
         await _db.SaveChangesAsync();
 
         WhatsAppSendResult? waResult = null;
@@ -104,8 +108,66 @@ public class RidesController : ControllerBase
         {
             rideId = ride.Id,
             status = ride.Status,
-            driver = activeDriver is null ? null : new { activeDriver.FullName, activeDriver.Plate, activeDriver.Station },
+            completeUrl = $"https://paytaksi.com.tr/yolculuk-tamamla?id={ride.Id}",
+            driver = activeDriver is null ? null : new { activeDriver.FullName, activeDriver.Plate, activeDriver.Station, activeDriver.IsBusy },
             whatsapp = waResult
+        });
+    }
+
+    /// <summary>Sürücü yolcuyu bıraktığında tek tıkla yolculuğu tamamlar ve sürücüyü tekrar müsait (IsBusy=false) yapar.</summary>
+    [HttpGet("{id:int}")]
+    public async Task<IActionResult> GetById(int id)
+    {
+        var ride = await _db.RideRequests
+            .Include(r => r.AssignedDriver)
+            .FirstOrDefaultAsync(r => r.Id == id);
+        if (ride is null) return NotFound(new { error = "Yolculuk bulunamadı." });
+
+        return Ok(new
+        {
+            ride.Id,
+            ride.PickupAddress,
+            ride.DestinationAddress,
+            ride.CustomerPhone,
+            ride.PaymentType,
+            ride.Status,
+            ride.CreatedAt,
+            driver = ride.AssignedDriver is null ? null : new
+            {
+                ride.AssignedDriver.Id,
+                ride.AssignedDriver.FullName,
+                ride.AssignedDriver.Plate,
+                ride.AssignedDriver.IsBusy
+            }
+        });
+    }
+
+    [HttpPost("{id:int}/complete")]
+    public async Task<IActionResult> CompleteRide(int id)
+    {
+        var ride = await _db.RideRequests
+            .Include(r => r.AssignedDriver)
+            .FirstOrDefaultAsync(r => r.Id == id);
+        if (ride is null) return NotFound(new { error = "Yolculuk bulunamadı." });
+
+        ride.Status = "Tamamlandı";
+        if (ride.AssignedDriver is not null)
+        {
+            ride.AssignedDriver.IsBusy = false;
+        }
+        await _db.SaveChangesAsync();
+
+        return Ok(new
+        {
+            rideId = ride.Id,
+            status = ride.Status,
+            message = "Yolculuk tamamlandı! Durumunuz tekrar Müsait olarak güncellendi.",
+            driver = ride.AssignedDriver is null ? null : new
+            {
+                ride.AssignedDriver.FullName,
+                ride.AssignedDriver.Plate,
+                ride.AssignedDriver.IsBusy
+            }
         });
     }
 

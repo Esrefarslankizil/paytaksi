@@ -3493,11 +3493,12 @@ export default function StaysiftHero(props: HeroProps) {
                             justifyContent: "space-between",
                             padding: "0px 10px 0px 16px",
                             pointerEvents: "auto",
-                            background: "rgba(252, 251, 248, 0.84)",
-                            backdropFilter: "blur(18px) saturate(1.3)",
-                            WebkitBackdropFilter: "blur(18px) saturate(1.3)",
-                            boxShadow:
-                                "rgba(16, 17, 20, 0.06) 0px 0px 0px 1px, rgba(30, 28, 20, 0.35) 0px 10px 30px -18px",
+                            background: scrolled ? "rgba(252, 251, 248, 0.84)" : "rgba(252, 251, 248, 0)",
+                            backdropFilter: scrolled ? "blur(18px) saturate(1.3)" : "none",
+                            WebkitBackdropFilter: scrolled ? "blur(18px) saturate(1.3)" : "none",
+                            boxShadow: scrolled
+                                ? "rgba(16, 17, 20, 0.06) 0px 0px 0px 1px, rgba(30, 28, 20, 0.35) 0px 10px 30px -18px"
+                                : "none",
                             transition:
                                 "background 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), backdrop-filter 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)",
                         }}

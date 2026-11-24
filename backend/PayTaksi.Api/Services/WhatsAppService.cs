@@ -27,6 +27,7 @@ public class WhatsAppService
             ? $"https://maps.google.com/?q={ride.PickupLat.Value.ToString(CultureInfo.InvariantCulture)},{ride.PickupLng.Value.ToString(CultureInfo.InvariantCulture)}"
             : null;
 
+        var completeLink = $"https://paytaksi.com.tr/yolculuk-tamamla?id={ride.Id}";
         var lines = new List<string>
         {
             "🚖 *Yeni PayTaksi Çağrısı*",
@@ -36,6 +37,7 @@ public class WhatsAppService
         lines.Add($"🏁 *Varış:* {ride.DestinationAddress}");
         lines.Add($"📞 *Müşteri:* {ride.CustomerPhone}");
         lines.Add($"💳 *Ödeme:* {ride.PaymentType}");
+        lines.Add($"✅ *Yolculuğu Bitir:* {completeLink}");
         var bodyText = string.Join("\n", lines);
 
         var phoneNumberId = _config["WhatsApp:PhoneNumberId"];
@@ -81,7 +83,7 @@ public class WhatsAppService
                             new { type = "text", text = pickupWithMap },
                             new { type = "text", text = CleanTemplateParam(ride.DestinationAddress) },
                             new { type = "text", text = CleanTemplateParam(ride.CustomerPhone) },
-                            new { type = "text", text = CleanTemplateParam(ride.PaymentType) },
+                            new { type = "text", text = CleanTemplateParam($"{ride.PaymentType} | Bitir: {completeLink}") },
                         }
                     }
                 }

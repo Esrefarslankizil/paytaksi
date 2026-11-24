@@ -31,6 +31,7 @@ public class DriversController : ControllerBase
             shiftEnd = d.ShiftEnd.ToString("HH:mm"),
             d.PausedUntil,
             d.IsEnabled,
+            d.IsBusy,
             isActiveNow = d.IsActiveAt(now),
             d.LastDispatchedAt
         }));
@@ -76,13 +77,14 @@ public class DriversController : ControllerBase
         return Ok(new { message = "Sürücü bugünlük kapatıldı.", pausedUntil = d.PausedUntil });
     }
 
-    /// <summary>Bugünlük kapatmayı kaldırır ve vardiya saatindeyse hemen aktif eder.</summary>
+    /// <summary>Bugünlük kapatmayı ve meşgul durumunu kaldırır, vardiya saatindeyse hemen aktif eder.</summary>
     [HttpPost("{id:int}/resume")]
     public async Task<IActionResult> Resume(int id)
     {
         var d = await _db.Drivers.FindAsync(id);
         if (d is null) return NotFound();
         d.PausedUntil = null;
+        d.IsBusy = false;
         await _db.SaveChangesAsync();
         return Ok(new { message = "Sürücü tekrar aktif edildi.", isActiveNow = d.IsActiveAt(DateTime.Now) });
     }

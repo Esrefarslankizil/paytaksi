@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client"
 import StaysiftHero from "./StaysiftHero"
 import AdminApp from "./admin/AdminApp"
 import DriverApp from "./driver/DriverApp"
+import RideCompletePage from "./driver/RideCompletePage"
 import AuthPage from "./auth/AuthPage"
 import AboutPage from "./components/AboutPage"
 import PartnerPage from "./components/PartnerPage"
@@ -18,6 +19,9 @@ function App() {
     }
     if (path.startsWith("/surucu")) {
         return <DriverApp />
+    }
+    if (path.startsWith("/yolculuk-tamamla")) {
+        return <RideCompletePage />
     }
     if (path.startsWith("/hakkimizda")) {
         return <AboutPage />

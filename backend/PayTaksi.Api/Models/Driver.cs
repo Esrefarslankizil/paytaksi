@@ -15,11 +15,13 @@ public class Driver
     /// <summary>Sürücü "bugünlük kapat" derse ertesi günün vardiya başlangıcına ayarlanır.</summary>
     public DateTime? PausedUntil { get; set; }
     public bool IsEnabled { get; set; } = true;
+    /// <summary>Sürücü aktif bir yolculukta ise true olur; tamamla linkine basınca false'a döner.</summary>
+    public bool IsBusy { get; set; } = false;
     public DateTime? LastDispatchedAt { get; set; }
 
     public bool IsActiveAt(DateTime localNow)
     {
-        if (!IsEnabled) return false;
+        if (!IsEnabled || IsBusy) return false;
         if (PausedUntil.HasValue && localNow < PausedUntil.Value) return false;
 
         var t = TimeOnly.FromDateTime(localNow);

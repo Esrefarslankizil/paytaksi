@@ -65,7 +65,7 @@ using (var scope = app.Services.CreateScope())
     if (useMySql)
     {
         await db.Database.EnsureCreatedAsync();
-        // EnsureCreated mevcut veritabanına sonradan eklenen tabloları açmaz; AnalyticsEvents tablosunu garanti altına al
+        // EnsureCreated mevcut veritabanına sonradan eklenen tabloları/kolonları açmaz; eksik şemayı garanti altına al
         await db.Database.ExecuteSqlRawAsync(@"
             CREATE TABLE IF NOT EXISTS `AnalyticsEvents` (
                 `Id` int NOT NULL AUTO_INCREMENT,
@@ -73,9 +73,21 @@ using (var scope = app.Services.CreateScope())
                 `CreatedAt` datetime(6) NOT NULL,
                 PRIMARY KEY (`Id`)
             ) CHARACTER SET=utf8mb4;");
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync("ALTER TABLE `Drivers` ADD COLUMN `IsBusy` tinyint(1) NOT NULL DEFAULT 0;");
+        }
+        catch { /* kolon zaten varsa geç */ }
     }
     else
+    {
         await db.Database.MigrateAsync();
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Drivers\" ADD COLUMN \"IsBusy\" INTEGER NOT NULL DEFAULT 0;");
+        }
+        catch { /* kolon zaten varsa geç */ }
+    }
 
     var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
     var adminEmail = app.Configuration["SeedAdmin:Email"]!;
