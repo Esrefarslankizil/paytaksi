@@ -7,6 +7,9 @@ public class RideRequest
     public double? PickupLat { get; set; }
     public double? PickupLng { get; set; }
     public string DestinationAddress { get; set; } = string.Empty;
+    public double? DestinationLat { get; set; }
+    public double? DestinationLng { get; set; }
+    public decimal EstimatedPrice { get; set; } = 250;
     public string CustomerPhone { get; set; } = string.Empty;
     public string PaymentType { get; set; } = "Nakit";
     public int? AssignedDriverId { get; set; }

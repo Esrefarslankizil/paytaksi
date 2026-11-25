@@ -4707,14 +4707,14 @@ export default function StaysiftHero(props: HeroProps) {
                             } catch {}
                         }
                         trackEvent("ride_completed")
-                        const destMapLink = `https://maps.google.com/?q=${toCoord[0].toFixed(6)},${toCoord[1].toFixed(6)}`
                         const ridePayload = {
                             pickupAddress: fromName.replace(/[\r\n\t]+/g, " ").trim(),
                             pickupLat: fromCoord[0],
                             pickupLng: fromCoord[1],
-                            destinationAddress: `${toName.replace(/[\r\n\t]+/g, " ").trim()} (${destMapLink})`,
+                            destinationAddress: toName.replace(/[\r\n\t]+/g, " ").trim(),
                             destinationLat: toCoord[0],
                             destinationLng: toCoord[1],
+                            estimatedPrice: mode === "cash" ? basePrice : memberPrice,
                             customerPhone:
                                 mode === "cash"
                                     ? cashPhone

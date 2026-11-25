@@ -13,7 +13,10 @@ public record CreateRideDto(
     double? PickupLng,
     string DestinationAddress,
     string CustomerPhone,
-    string PaymentType = "Nakit"
+    string PaymentType = "Nakit",
+    double? DestinationLat = null,
+    double? DestinationLng = null,
+    decimal? EstimatedPrice = null
 );
 
 [ApiController]
@@ -81,10 +84,13 @@ public class RidesController : ControllerBase
             PickupLat = dto.PickupLat,
             PickupLng = dto.PickupLng,
             DestinationAddress = dto.DestinationAddress,
+            DestinationLat = dto.DestinationLat,
+            DestinationLng = dto.DestinationLng,
+            EstimatedPrice = dto.EstimatedPrice is > 0 ? dto.EstimatedPrice.Value : 250,
             CustomerPhone = dto.CustomerPhone,
             PaymentType = dto.PaymentType,
             AssignedDriverId = activeDriver?.Id,
-            Status = activeDriver is null ? "Aktif Sürücü Yok" : "Yolculukta (Meşgul)",
+            Status = activeDriver is null ? "Aktif Sürücü Yok" : "Onay Bekliyor",
             CreatedAt = now,
         };
 
@@ -92,7 +98,6 @@ public class RidesController : ControllerBase
         if (activeDriver is not null)
         {
             activeDriver.LastDispatchedAt = now;
-            activeDriver.IsBusy = true;
         }
         await _db.SaveChangesAsync();
 
@@ -108,13 +113,13 @@ public class RidesController : ControllerBase
         {
             rideId = ride.Id,
             status = ride.Status,
-            completeUrl = $"https://paytaksi.com.tr/yolculuk-tamamla?id={ride.Id}",
+            actionUrl = $"https://paytaksi.com.tr/yolculuk-tamamla?id={ride.Id}",
             driver = activeDriver is null ? null : new { activeDriver.FullName, activeDriver.Plate, activeDriver.Station, activeDriver.IsBusy },
             whatsapp = waResult
         });
     }
 
-    /// <summary>Sürücü yolcuyu bıraktığında tek tıkla yolculuğu tamamlar ve sürücüyü tekrar müsait (IsBusy=false) yapar.</summary>
+    /// <summary>Sürücü linki açtığında çağrı detaylarını döner. Müşteri numarası sadece Kabul Edildikten sonra görünür.</summary>
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)
     {
@@ -123,12 +128,18 @@ public class RidesController : ControllerBase
             .FirstOrDefaultAsync(r => r.Id == id);
         if (ride is null) return NotFound(new { error = "Yolculuk bulunamadı." });
 
+        var isAccepted = ride.Status == "Yolculukta" || ride.Status == "Tamamlandı";
         return Ok(new
         {
             ride.Id,
             ride.PickupAddress,
+            ride.PickupLat,
+            ride.PickupLng,
             ride.DestinationAddress,
-            ride.CustomerPhone,
+            ride.DestinationLat,
+            ride.DestinationLng,
+            ride.EstimatedPrice,
+            customerPhone = isAccepted ? ride.CustomerPhone : null,
             ride.PaymentType,
             ride.Status,
             ride.CreatedAt,
@@ -139,6 +150,83 @@ public class RidesController : ControllerBase
                 ride.AssignedDriver.Plate,
                 ride.AssignedDriver.IsBusy
             }
+        });
+    }
+
+    /// <summary>Sürücü çağrıyı KABUL eder: durum Yolculukta olur, sürücü meşgul işaretlenir ve müşteri numarası açılır.</summary>
+    [HttpPost("{id:int}/accept")]
+    public async Task<IActionResult> AcceptRide(int id)
+    {
+        var ride = await _db.RideRequests
+            .Include(r => r.AssignedDriver)
+            .FirstOrDefaultAsync(r => r.Id == id);
+        if (ride is null) return NotFound(new { error = "Yolculuk bulunamadı." });
+        if (ride.Status == "Tamamlandı")
+            return BadRequest(new { error = "Bu yolculuk zaten tamamlanmış." });
+        if (ride.Status == "Reddedildi")
+            return BadRequest(new { error = "Bu çağrı reddedilmiş." });
+
+        ride.Status = "Yolculukta";
+        if (ride.AssignedDriver is not null)
+        {
+            ride.AssignedDriver.IsBusy = true;
+        }
+        await _db.SaveChangesAsync();
+
+        return Ok(new
+        {
+            rideId = ride.Id,
+            status = ride.Status,
+            customerPhone = ride.CustomerPhone,
+            message = "Çağrı kabul edildi! Müşteriyi hemen arayabilirsiniz."
+        });
+    }
+
+    /// <summary>Sürücü çağrıyı REDDEDER: sürücü müsait kalır, başka müsait sürücü varsa ona yönlendirilir.</summary>
+    [HttpPost("{id:int}/reject")]
+    public async Task<IActionResult> RejectRide(int id)
+    {
+        var ride = await _db.RideRequests
+            .Include(r => r.AssignedDriver)
+            .FirstOrDefaultAsync(r => r.Id == id);
+        if (ride is null) return NotFound(new { error = "Yolculuk bulunamadı." });
+
+        var previousDriverId = ride.AssignedDriverId;
+        if (ride.AssignedDriver is not null)
+        {
+            ride.AssignedDriver.IsBusy = false;
+        }
+
+        // Başka aktif & müsait sürücü varsa sıradakine aktar
+        var now = DateTime.Now;
+        var nextDriver = (await _db.Drivers.ToListAsync())
+            .Where(d => d.Id != previousDriverId && d.IsActiveAt(now))
+            .OrderBy(d => d.LastDispatchedAt ?? DateTime.MinValue)
+            .FirstOrDefault();
+
+        if (nextDriver is not null)
+        {
+            ride.AssignedDriverId = nextDriver.Id;
+            ride.Status = "Onay Bekliyor";
+            nextDriver.LastDispatchedAt = now;
+            await _db.SaveChangesAsync();
+            await _wa.SendRideRequestAsync(nextDriver, ride);
+            return Ok(new
+            {
+                rideId = ride.Id,
+                status = "Reddedildi",
+                reassignedTo = nextDriver.FullName,
+                message = "Çağrı reddedildi ve sıradaki müsait sürücüye aktarıldı."
+            });
+        }
+
+        ride.Status = "Reddedildi";
+        await _db.SaveChangesAsync();
+        return Ok(new
+        {
+            rideId = ride.Id,
+            status = ride.Status,
+            message = "Çağrı reddedildi. Durumunuz Müsait olarak kaldı."
         });
     }
 

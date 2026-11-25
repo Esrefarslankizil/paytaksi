@@ -78,15 +78,29 @@ using (var scope = app.Services.CreateScope())
             await db.Database.ExecuteSqlRawAsync("ALTER TABLE `Drivers` ADD COLUMN `IsBusy` tinyint(1) NOT NULL DEFAULT 0;");
         }
         catch { /* kolon zaten varsa geç */ }
+        foreach (var sql in new[]
+        {
+            "ALTER TABLE `RideRequests` ADD COLUMN `DestinationLat` double NULL;",
+            "ALTER TABLE `RideRequests` ADD COLUMN `DestinationLng` double NULL;",
+            "ALTER TABLE `RideRequests` ADD COLUMN `EstimatedPrice` decimal(18,2) NOT NULL DEFAULT 250;"
+        })
+        {
+            try { await db.Database.ExecuteSqlRawAsync(sql); } catch { }
+        }
     }
     else
     {
         await db.Database.MigrateAsync();
-        try
+        foreach (var sql in new[]
         {
-            await db.Database.ExecuteSqlRawAsync("ALTER TABLE \"Drivers\" ADD COLUMN \"IsBusy\" INTEGER NOT NULL DEFAULT 0;");
+            "ALTER TABLE \"Drivers\" ADD COLUMN \"IsBusy\" INTEGER NOT NULL DEFAULT 0;",
+            "ALTER TABLE \"RideRequests\" ADD COLUMN \"DestinationLat\" REAL NULL;",
+            "ALTER TABLE \"RideRequests\" ADD COLUMN \"DestinationLng\" REAL NULL;",
+            "ALTER TABLE \"RideRequests\" ADD COLUMN \"EstimatedPrice\" REAL NOT NULL DEFAULT 250;"
+        })
+        {
+            try { await db.Database.ExecuteSqlRawAsync(sql); } catch { }
         }
-        catch { /* kolon zaten varsa geç */ }
     }
 
     var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();

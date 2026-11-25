@@ -27,17 +27,18 @@ public class WhatsAppService
             ? $"https://maps.google.com/?q={ride.PickupLat.Value.ToString(CultureInfo.InvariantCulture)},{ride.PickupLng.Value.ToString(CultureInfo.InvariantCulture)}"
             : null;
 
-        var completeLink = $"https://paytaksi.com.tr/yolculuk-tamamla?id={ride.Id}";
+        var actionLink = $"https://paytaksi.com.tr/yolculuk-tamamla?id={ride.Id}";
+        var priceText = ride.EstimatedPrice > 0 ? $"{Math.Round(ride.EstimatedPrice)} TL" : "250 TL";
+        var cleanDest = System.Text.RegularExpressions.Regex.Replace(ride.DestinationAddress ?? "", @"\s*\(https?://[^)]+\)", "").Trim();
+
         var lines = new List<string>
         {
             "🚖 *Yeni PayTaksi Çağrısı*",
             $"📍 *Alış:* {ride.PickupAddress}",
+            $"🏁 *Varış:* {cleanDest}",
+            $"💰 *Ücret:* {priceText} ({ride.PaymentType})",
+            $"👉 *Kabul / Reddet:* {actionLink}"
         };
-        if (mapLink is not null) lines.Add($"🗺️ *Konum:* {mapLink}");
-        lines.Add($"🏁 *Varış:* {ride.DestinationAddress}");
-        lines.Add($"📞 *Müşteri:* {ride.CustomerPhone}");
-        lines.Add($"💳 *Ödeme:* {ride.PaymentType}");
-        lines.Add($"✅ *Yolculuğu Bitir:* {completeLink}");
         var bodyText = string.Join("\n", lines);
 
         var phoneNumberId = _config["WhatsApp:PhoneNumberId"];
@@ -80,10 +81,10 @@ public class WhatsAppService
                         type = "body",
                         parameters = new object[]
                         {
-                            new { type = "text", text = pickupWithMap },
-                            new { type = "text", text = CleanTemplateParam(ride.DestinationAddress) },
-                            new { type = "text", text = CleanTemplateParam(ride.CustomerPhone) },
-                            new { type = "text", text = CleanTemplateParam($"{ride.PaymentType} | Bitir: {completeLink}") },
+                            new { type = "text", text = CleanTemplateParam(ride.PickupAddress) },
+                            new { type = "text", text = CleanTemplateParam(cleanDest) },
+                            new { type = "text", text = CleanTemplateParam("Kabul sonrası açılır") },
+                            new { type = "text", text = CleanTemplateParam($"{priceText} ({ride.PaymentType}) | Onayla: {actionLink}") },
                         }
                     }
                 }
