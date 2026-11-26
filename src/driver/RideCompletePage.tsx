@@ -43,6 +43,12 @@ export default function RideCompletePage() {
     const [infoMsg, setInfoMsg] = useState<string | null>(null)
     const [driverCoord, setDriverCoord] = useState<[number, number] | null>(null)
     const [driverUser, setDriverUser] = useState<AuthUser | null>(null)
+    const [nowMs, setNowMs] = useState(() => Date.now())
+
+    useEffect(() => {
+        const t = setInterval(() => setNowMs(Date.now()), 1000)
+        return () => clearInterval(t)
+    }, [])
 
     const mapRef = useRef<HTMLDivElement>(null)
     const ymapInstanceRef = useRef<any>(null)
@@ -481,21 +487,59 @@ export default function RideCompletePage() {
                         {infoMsg && <p className="pt-note" style={{ marginTop: 10, background: "rgba(14,138,95,0.10)", color: C.ok }}>{infoMsg}</p>}
 
                         {/* Onay bekliyor */}
-                        {isPending && (
-                            <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-                                <button type="button" className="pt-primary pt-ok" disabled={busy} onClick={() => callAction("accept")}>
-                                    <span>{busy ? "İşleniyor..." : "Çağrıyı kabul et"}</span>
-                                    <span className="pt-badge">{Math.round(price)} TL</span>
-                                </button>
-                                <div className="pt-divider">veya</div>
-                                <button type="button" className="pt-ghost pt-ghost-bad" disabled={busy} onClick={() => callAction("reject")}>
-                                    <span>Reddet</span>
-                                </button>
-                                <p style={{ margin: 0, fontSize: 12, color: C.ink2, textAlign: "center" }}>
-                                    Müşteri telefonu, çağrıyı kabul ettiğinizde açılır.
-                                </p>
-                            </div>
-                        )}
+                        {isPending && (() => {
+                            const rawTs = ride?.dispatchedAt || ride?.createdAt
+                            const parsedTs = rawTs ? new Date(rawTs).getTime() : nowMs
+                            const baseTs = Number.isFinite(parsedTs) ? parsedTs : nowMs
+                            const remainSec = Math.max(0, 120 - Math.max(0, Math.floor((nowMs - baseTs) / 1000)))
+                            const mm = String(Math.floor(remainSec / 60)).padStart(2, "0")
+                            const ss = String(remainSec % 60).padStart(2, "0")
+                            const pct = Math.min(100, Math.max(0, (remainSec / 120) * 100))
+                            const urgent = remainSec <= 30
+                            return (
+                                <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+                                    <div
+                                        className="pt-tile"
+                                        style={{
+                                            padding: "10px 14px",
+                                            background: urgent ? "rgba(179,38,30,0.08)" : "rgba(58,58,244,0.07)",
+                                            border: `1px solid ${urgent ? "rgba(179,38,30,0.22)" : "rgba(58,58,244,0.18)"}`,
+                                        }}
+                                    >
+                                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12.5, fontWeight: 600 }}>
+                                            <span style={{ color: urgent ? C.danger : C.ink2 }}>
+                                                {remainSec > 0 ? "Onay için kalan süre" : "Onay süresi doldu"}
+                                            </span>
+                                            <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 700, color: urgent ? C.danger : C.accent }}>
+                                                {mm}:{ss}
+                                            </span>
+                                        </div>
+                                        <div style={{ marginTop: 7, height: 5, borderRadius: 99, background: "rgba(16,17,20,0.08)", overflow: "hidden" }}>
+                                            <div
+                                                style={{
+                                                    width: `${pct}%`,
+                                                    height: "100%",
+                                                    borderRadius: 99,
+                                                    background: urgent ? C.danger : C.accent,
+                                                    transition: "width .8s linear",
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                    <button type="button" className="pt-primary pt-ok" disabled={busy || remainSec === 0} onClick={() => callAction("accept")}>
+                                        <span>{busy ? "İşleniyor..." : "Çağrıyı kabul et"}</span>
+                                        <span className="pt-badge">{Math.round(price)} TL</span>
+                                    </button>
+                                    <div className="pt-divider">veya</div>
+                                    <button type="button" className="pt-ghost pt-ghost-bad" disabled={busy} onClick={() => callAction("reject")}>
+                                        <span>Reddet</span>
+                                    </button>
+                                    <p style={{ margin: 0, fontSize: 12, color: C.ink2, textAlign: "center" }}>
+                                        Müşteri telefonu, çağrıyı kabul ettiğinizde açılır.
+                                    </p>
+                                </div>
+                            )
+                        })()}
 
                         {/* Aktif yolculuk */}
                         {isActiveRide && (
