@@ -893,6 +893,16 @@ export default function StaysiftHero(props: HeroProps) {
     const [toCoord, setToCoord] = React.useState<[number, number]>([38.6748, 39.2225])
     const [hasFromPicked, setHasFromPicked] = React.useState(false)
     const [hasToPicked, setHasToPicked] = React.useState(false)
+    // Giriş yapmadan önce doldurulan Nereden/Nereye bilgisi (giriş sonrası otomatik dolu gelsin)
+    const tripDraftRef = React.useRef<any>(
+        (() => {
+            try {
+                const d = JSON.parse(localStorage.getItem("paytaksi_trip_draft") || "null")
+                if (d && Date.now() - Number(d.at || 0) < 6 * 60 * 60 * 1000) return d
+            } catch {}
+            return null
+        })()
+    )
     const [routeInfo, setRouteInfo] = React.useState<{ km: number; min: number }>({ km: 0, min: 0 })
     const [mapPickerOpen, setMapPickerOpen] = React.useState(false)
     const [gpsConfirmMode, setGpsConfirmMode] = React.useState(false)
@@ -962,7 +972,7 @@ export default function StaysiftHero(props: HeroProps) {
                     async (pos) => {
                         const { latitude, longitude } = pos.coords
                         userGpsCoordRef.current = [latitude, longitude]
-                        if (isCoordInElazig(latitude, longitude)) {
+                        if (isCoordInElazig(latitude, longitude) && !tripDraftRef.current?.hasFrom) {
                             setFromCoord([latitude, longitude])
                             try {
                                 const res = await fetch(
@@ -1140,6 +1150,52 @@ export default function StaysiftHero(props: HeroProps) {
         if (hasFromPicked && hasToPicked) {
             computeRoute(fromCoord, toCoord)
         }
+    }, [fromCoord, toCoord, hasFromPicked, hasToPicked])
+
+    // Kayıtlı taslağı geri yükle (giriş yapıp ana sayfaya dönünce Nereden/Nereye dolu gelir)
+    useEffect(() => {
+        const d = tripDraftRef.current
+        if (!d) return
+        if (d.hasFrom && Array.isArray(d.fromCoord)) {
+            setFromCoord([d.fromCoord[0], d.fromCoord[1]])
+            setHasFromPicked(true)
+        }
+        if (d.hasTo && Array.isArray(d.toCoord)) {
+            setToCoord([d.toCoord[0], d.toCoord[1]])
+            setHasToPicked(true)
+        }
+        const fill = () => {
+            const ui = uiRef.current
+            if (d.hasFrom && ui.fromInput && d.fromName) ui.fromInput.value = d.fromName
+            if (d.hasTo && ui.whereInput && d.toName) ui.whereInput.value = d.toName
+        }
+        fill()
+        const t1 = setTimeout(fill, 150)
+        const t2 = setTimeout(fill, 700)
+        return () => {
+            clearTimeout(t1)
+            clearTimeout(t2)
+        }
+    }, [])
+
+    // Seçim değiştikçe taslağı kaydet
+    useEffect(() => {
+        if (!hasFromPicked && !hasToPicked) return
+        const ui = uiRef.current
+        try {
+            localStorage.setItem(
+                "paytaksi_trip_draft",
+                JSON.stringify({
+                    at: Date.now(),
+                    hasFrom: hasFromPicked,
+                    hasTo: hasToPicked,
+                    fromCoord,
+                    toCoord,
+                    fromName: ui.fromInput?.value || "",
+                    toName: ui.whereInput?.value || "",
+                })
+            )
+        } catch {}
     }, [fromCoord, toCoord, hasFromPicked, hasToPicked])
 
     const reverseGeocodeElazig = async (lat: number, lon: number): Promise<string> => {
@@ -4707,6 +4763,9 @@ export default function StaysiftHero(props: HeroProps) {
                             } catch {}
                         }
                         trackEvent("ride_completed")
+                        try {
+                            localStorage.removeItem("paytaksi_trip_draft")
+                        } catch {}
                         const ridePayload = {
                             pickupAddress: fromName.replace(/[\r\n\t]+/g, " ").trim(),
                             pickupLat: fromCoord[0],
