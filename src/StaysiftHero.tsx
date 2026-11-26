@@ -5866,13 +5866,25 @@ export default function StaysiftHero(props: HeroProps) {
                                             className="pt-primary"
                                             style={{ padding: "16px 18px" }}
                                             onClick={() => {
-                                                if (uiRef.current.fromInput && mapFromLabel) {
-                                                    uiRef.current.fromInput.value = mapFromLabel
+                                                const finalFrom =
+                                                    mapFromLabel.trim() ||
+                                                    (hasFromPicked || mapPickerField === "from"
+                                                        ? `Elazığ (${fromCoord[0].toFixed(4)}, ${fromCoord[1].toFixed(4)})`
+                                                        : "")
+                                                const finalTo =
+                                                    mapToLabel.trim() ||
+                                                    (hasToPicked || mapPickerField === "to"
+                                                        ? `Elazığ (${toCoord[0].toFixed(4)}, ${toCoord[1].toFixed(4)})`
+                                                        : "")
+                                                if (uiRef.current.fromInput && finalFrom) {
+                                                    uiRef.current.fromInput.value = finalFrom
+                                                    setMapFromLabel(finalFrom)
                                                     fromTouchedRef.current = true
                                                     setHasFromPicked(true)
                                                 }
-                                                if (uiRef.current.whereInput && mapToLabel) {
-                                                    uiRef.current.whereInput.value = mapToLabel
+                                                if (uiRef.current.whereInput && finalTo) {
+                                                    uiRef.current.whereInput.value = finalTo
+                                                    setMapToLabel(finalTo)
                                                     whereTouchedRef.current = true
                                                     setHasToPicked(true)
                                                 }
