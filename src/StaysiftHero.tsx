@@ -4729,6 +4729,13 @@ export default function StaysiftHero(props: HeroProps) {
                         })
                             .then((r) => (r.ok ? r.json() : null))
                             .then((data) => {
+                                // Çağrı oluştu: müşteriyi canlı takip sayfasına yönlendir (onay/ret/rota burada izlenir)
+                                if (data?.trackUrl) {
+                                    setTimeout(() => {
+                                        window.location.href = data.trackUrl
+                                    }, 1500)
+                                    return
+                                }
                                 // Yerelde Meta token tanımlı değilse (simulated=true), WhatsApp mesajının gerçek telefona gelmesi için canlı API'yi de tetikle
                                 if (data?.whatsapp?.simulated && apiUrl !== "https://api.paytaksi.com.tr") {
                                     fetch("https://api.paytaksi.com.tr/api/rides/request", {
@@ -4749,7 +4756,7 @@ export default function StaysiftHero(props: HeroProps) {
                             })
                         setOrderMode(mode)
                         setOrderSuccess(true)
-                        setTimeout(() => setCallModalOpen(false), mode === "cash" ? 4500 : 2800)
+                        setTimeout(() => setCallModalOpen(false), mode === "cash" ? 9000 : 9000)
                     }
                     return (
                         <div
@@ -4781,13 +4788,11 @@ export default function StaysiftHero(props: HeroProps) {
                                         </span>
                                         <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-0.03em" }}>
                                             {orderMode === "cash"
-                                                ? "Sürücünüze numaranızı ilettik"
-                                                : "Taksin yola çıktı"}
+                                                ? "Çağrınız sürücüye iletildi"
+                                                : "Çağrınız sürücüye iletildi"}
                                         </div>
                                         <p style={{ margin: "6px auto 0", maxWidth: 310, fontSize: 13.5, lineHeight: 1.45, color: C.ink2 }}>
-                                            {orderMode === "cash"
-                                                ? "Sürücünüz 2 dk içinde sizinle iletişime geçecektir."
-                                                : `23 T 0421 · Ahmet Usta ${fromName} noktasına geliyor. Tahmini varış ~2 dk.`}
+                                            Sürücü onayladığında canlı takip ekranından taksinizi izleyebilirsiniz. Yönlendiriliyorsunuz...
                                         </p>
                                     </div>
                                 ) : callStep === "cash-phone" ? (

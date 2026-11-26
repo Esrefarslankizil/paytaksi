@@ -1,5 +1,6 @@
 import * as React from "react"
 import { useEffect, useRef, useState } from "react"
+import AuthPage, { AuthUser, TOKEN_KEY } from "../auth/AuthPage"
 
 const C = {
     bg: "#F1EFEA",
@@ -41,9 +42,87 @@ export default function RideCompletePage() {
     const [err, setErr] = useState<string | null>(null)
     const [infoMsg, setInfoMsg] = useState<string | null>(null)
     const [driverCoord, setDriverCoord] = useState<[number, number] | null>(null)
+    const [driverUser, setDriverUser] = useState<AuthUser | null>(null)
 
     const mapRef = useRef<HTMLDivElement>(null)
     const ymapInstanceRef = useRef<any>(null)
+    const driverPinRef = useRef<any>(null)
+    const driverCoordRef = useRef<[number, number] | null>(null)
+    const lastSentRef = useRef(0)
+
+    const authHeaders = (): Record<string, string> => {
+        const token = localStorage.getItem(TOKEN_KEY)
+        return token ? { Authorization: `Bearer ${token}` } : {}
+    }
+
+    const loadRide = async (silent = false) => {
+        if (!rideId) return
+        try {
+            const r = await fetch(`${getApiUrl()}/api/rides/${rideId}`, { headers: authHeaders() })
+            if (r.status === 401) {
+                setDriverUser(null)
+                return
+            }
+            const data = await r.json().catch(() => null)
+            if (!r.ok) {
+                if (!silent) setErr(data?.error || "Bu yolculuk kaydı bulunamadı.")
+                return
+            }
+            setRide(data)
+        } catch {
+            if (!silent) setErr("Sunucuya bağlanılamadı.")
+        }
+    }
+
+    // Giriş yapıldıktan sonra çağrıyı yükle ve durumu canlı izle (zaman aşımı / otomatik tamamlanma için)
+    useEffect(() => {
+        if (!driverUser) return
+        if (!rideId) {
+            setErr("Geçersiz yolculuk bağlantısı.")
+            setLoading(false)
+            return
+        }
+        loadRide().finally(() => setLoading(false))
+        const t = setInterval(() => loadRide(true), 5000)
+        return () => clearInterval(t)
+    }, [driverUser, rideId])
+
+    // Kabul sonrası: sürücü konumunu canlı takip et ve sunucuya gönder (müşteri takibi + otomatik tamamlama)
+    const activeNow = ride?.status === "Yolculukta"
+    useEffect(() => {
+        if (!driverUser || !activeNow || !navigator.geolocation) return
+        const id = navigator.geolocation.watchPosition(
+            (pos) => {
+                const c: [number, number] = [pos.coords.latitude, pos.coords.longitude]
+                setDriverCoord(c)
+                const now = Date.now()
+                if (now - lastSentRef.current < 4000) return
+                lastSentRef.current = now
+                fetch(`${getApiUrl()}/api/rides/${rideId}/location`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", ...authHeaders() },
+                    body: JSON.stringify({ lat: c[0], lng: c[1] }),
+                })
+                    .then((r) => (r.ok ? r.json() : null))
+                    .then((d) => {
+                        if (d?.status) setRide((prev: any) => (prev ? { ...prev, status: d.status, pickedUp: d.pickedUp } : prev))
+                    })
+                    .catch(() => {})
+            },
+            () => {},
+            { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
+        )
+        return () => navigator.geolocation.clearWatch(id)
+    }, [driverUser, activeNow, rideId])
+
+    useEffect(() => {
+        driverCoordRef.current = driverCoord
+        const ym = (window as any).ymaps
+        if (!driverCoord || !ym || !ymapInstanceRef.current) return
+        if (driverPinRef.current) {
+            driverPinRef.current.geometry.setCoordinates(driverCoord)
+        }
+    }, [driverCoord?.[0], driverCoord?.[1]])
 
     useEffect(() => {
         if (!document.getElementById("staysift-fonts")) {
@@ -66,21 +145,7 @@ export default function RideCompletePage() {
             )
         }
 
-        if (!rideId) {
-            setErr("Geçersiz yolculuk bağlantısı.")
-            setLoading(false)
-            return
-        }
-
-        fetch(`${getApiUrl()}/api/rides/${rideId}`)
-            .then((r) => (r.ok ? r.json() : null))
-            .then((data) => {
-                if (!data) setErr("Bu yolculuk kaydı bulunamadı.")
-                else setRide(data)
-            })
-            .catch(() => setErr("Sunucuya bağlanılamadı."))
-            .finally(() => setLoading(false))
-    }, [rideId])
+    }, [])
 
     // Yandex Harita: Alınış + Varış + Sürücünün Kendi Konumu + OSRM Yol Rotası
     useEffect(() => {
@@ -157,15 +222,17 @@ export default function RideCompletePage() {
                 }
 
                 // 3. Sürücünün Kendi Konumu (Yeşil)
-                if (driverCoord) {
-                    points.push(driverCoord)
-                    map.geoObjects.add(
-                        new ym.Placemark(
-                            driverCoord,
-                            {},
-                            { iconLayout: makePin("Konumunuz", "rgba(14,138,95,0.95)", "#ffffff", "#0E8A5F"), zIndex: 1300 }
-                        )
+                const dc = driverCoordRef.current
+                driverPinRef.current = null
+                if (dc) {
+                    points.push(dc)
+                    const pin = new ym.Placemark(
+                        dc,
+                        {},
+                        { iconLayout: makePin("Konumunuz", "rgba(14,138,95,0.95)", "#ffffff", "#0E8A5F"), zIndex: 1300 }
                     )
+                    driverPinRef.current = pin
+                    map.geoObjects.add(pin)
                 }
 
                 // 4. Alınış -> Varış Gerçek Yol Rotası (OSRM)
@@ -222,9 +289,9 @@ export default function RideCompletePage() {
                 ymapInstanceRef.current = null
             }
         }
-    }, [ride?.id, driverCoord?.[0], driverCoord?.[1]])
+    }, [ride?.id, !!driverCoord])
 
-    const callAction = async (action: "accept" | "reject" | "complete") => {
+    const callAction = async (action: "accept" | "reject" | "complete" | "cancel") => {
         if (!rideId || busy) return
         setBusy(true)
         setErr(null)
@@ -232,6 +299,8 @@ export default function RideCompletePage() {
         try {
             const res = await fetch(`${getApiUrl()}/api/rides/${rideId}/${action}`, {
                 method: "POST",
+                headers: { "Content-Type": "application/json", ...authHeaders() },
+                body: action === "cancel" ? JSON.stringify({ reason: "Müşteriye ulaşılamadı" }) : undefined,
             })
             const data = await res.json().catch(() => ({}))
             if (!res.ok) {
@@ -244,6 +313,9 @@ export default function RideCompletePage() {
             } else if (action === "reject") {
                 setRide((prev: any) => (prev ? { ...prev, status: "Reddedildi", customerPhone: null } : prev))
                 setInfoMsg(data.message || "Çağrı reddedildi.")
+            } else if (action === "cancel") {
+                setRide((prev: any) => (prev ? { ...prev, status: "İptal Edildi" } : prev))
+                setInfoMsg(data.message || "Yolculuk iptal edildi.")
             } else if (action === "complete") {
                 setRide((prev: any) => (prev ? { ...prev, status: "Tamamlandı" } : prev))
                 setInfoMsg(data.message || "Yolculuk tamamlandı! Durumunuz tekrar Müsait.")
@@ -255,11 +327,19 @@ export default function RideCompletePage() {
         }
     }
 
+    if (!driverUser) {
+        // Sürücü giriş yapmamışsa önce giriş ister; giriş sonrası çağrı otomatik açılır
+        return <AuthPage initialMode="login" requireRole="Taksici" onAuthenticated={(u) => setDriverUser(u)} />
+    }
+
     const status = String(ride?.status || "")
     const isPending = status === "Onay Bekliyor" || status === "Sürücüye İletildi" || status === "Bekliyor"
     const isActiveRide = status === "Yolculukta" || status === "Yolculukta (Meşgul)"
     const isCompleted = status === "Tamamlandı"
-    const isRejected = status === "Reddedildi"
+    const isCancelled = status === "İptal Edildi"
+    // Reddedildi / başka sürücüye aktarıldı / hizmet verilemedi: bu sürücü için çağrı kapandı
+    const isRejected = status === "Reddedildi" || status === "Hizmet Verilemedi"
+    const isHandedOver = !!ride && !isPending && !isActiveRide && !isCompleted && !isCancelled && !isRejected
     const price = Number(ride?.estimatedPrice || 250)
     const cleanDest = String(ride?.destinationAddress || "").replace(/\s*\(https?:\/\/[^)]+\)/g, "").trim()
     const pickupNavUrl =
@@ -267,286 +347,212 @@ export default function RideCompletePage() {
             ? `https://www.google.com/maps/dir/?api=1&destination=${ride.pickupLat},${ride.pickupLng}`
             : null
 
+
+    const CSS = `
+        @keyframes ptIn { from { opacity: 0; transform: translateY(14px) scale(.98) } to { opacity: 1; transform: none } }
+        @keyframes ptPulse { 0% { box-shadow: 0 0 0 0 rgba(34,197,94,.55) } 100% { box-shadow: 0 0 0 7px rgba(34,197,94,0) } }
+        .pt-page { min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box;
+          font-family: ${SANS}; color: ${C.ink};
+          background: radial-gradient(70% 50% at 85% 0%, rgba(58,58,244,0.16), rgba(58,58,244,0) 70%), radial-gradient(60% 45% at 0% 100%, rgba(14,138,95,0.10), rgba(14,138,95,0) 70%), ${C.bg}; }
+        .pt-card { position: relative; isolation: isolate; overflow: hidden; width: 100%; max-width: 440px; box-sizing: border-box;
+          padding: 22px; border-radius: 30px;
+          background: linear-gradient(155deg, rgba(255,255,255,0.74) 0%, rgba(247,247,250,0.52) 48%, rgba(236,237,243,0.44) 100%);
+          backdrop-filter: blur(40px) saturate(190%) brightness(1.04); -webkit-backdrop-filter: blur(40px) saturate(190%) brightness(1.04);
+          border: 1px solid rgba(255,255,255,0.78);
+          box-shadow: 0 40px 100px -24px rgba(16,17,24,0.45), 0 12px 30px -12px rgba(16,17,24,0.18), 0 0 0 0.5px rgba(16,17,20,0.08), inset 0 1px 0 rgba(255,255,255,0.95), inset 0 -1px 0 rgba(255,255,255,0.35);
+          animation: ptIn .45s cubic-bezier(.2,.8,.2,1) both; }
+        .pt-card::after { content: ""; position: absolute; inset: 0 0 52% 0; z-index: -1; pointer-events: none; background: linear-gradient(180deg, rgba(255,255,255,0.5), rgba(255,255,255,0)); }
+        .pt-glow { position: absolute; z-index: -1; pointer-events: none; width: 300px; height: 300px; top: -150px; right: -110px; border-radius: 50%; background: radial-gradient(circle, rgba(58,58,244,0.22), rgba(58,58,244,0) 65%); }
+        .pt-ic { width: 46px; height: 46px; flex: none; border-radius: 15px; display: grid; place-items: center; color: ${C.accent};
+          background: linear-gradient(160deg, rgba(255,255,255,0.9), rgba(58,58,244,0.10)); border: 1px solid rgba(255,255,255,0.9);
+          box-shadow: inset 0 1px 0 #fff, 0 6px 16px -6px rgba(58,58,244,0.35); }
+        .pt-ic-ok { color: #16a34a; background: linear-gradient(160deg, rgba(255,255,255,0.9), rgba(34,197,94,0.16)); box-shadow: inset 0 1px 0 #fff, 0 10px 24px -8px rgba(34,197,94,0.45); }
+        .pt-ic-bad { color: ${C.danger}; background: linear-gradient(160deg, rgba(255,255,255,0.9), rgba(179,38,30,0.14)); }
+        .pt-eyebrow { display: flex; align-items: center; gap: 7px; font-family: ${MONO}; font-size: 11px; color: ${C.ink2}; letter-spacing: 0.01em; }
+        .pt-live { width: 7px; height: 7px; border-radius: 99px; background: #22c55e; flex: none; animation: ptPulse 1.6s ease-out infinite; }
+        .pt-tile { display: block; border-radius: 18px; background: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.88);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.95), 0 1px 2px rgba(16,17,20,0.04), 0 8px 20px -14px rgba(16,17,20,0.18); }
+        .pt-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6B6D75; }
+        .pt-stop { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
+        .pt-place { font-size: 14.5px; font-weight: 600; letter-spacing: -0.015em; margin-top: 1px; }
+        .pt-dot { width: 10px; height: 10px; flex: none; border-radius: 99px; background: ${C.accent}; box-shadow: 0 0 0 4px rgba(58,58,244,0.14); }
+        .pt-dot-end { border-radius: 3px; background: ${C.ink}; box-shadow: 0 0 0 4px rgba(16,17,20,0.08); }
+        .pt-link { margin: -6px 0 -6px 4.5px; height: 14px; border-left: 1.5px dashed rgba(16,17,20,0.2); }
+        .pt-pill { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 7px 12px; border-radius: 999px; font-size: 12.5px; color: ${C.ink}; background: rgba(58,58,244,0.08); border: 1px solid rgba(58,58,244,0.16); }
+        .pt-pill b { font-family: ${MONO}; font-weight: 600; color: ${C.accent}; }
+        .pt-primary { position: relative; overflow: hidden; width: 100%; border: 0; cursor: pointer; text-decoration: none; box-sizing: border-box;
+          display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 14px 15px 18px; border-radius: 18px;
+          font-family: ${SANS}; font-size: 15px; font-weight: 700; color: #fff;
+          background: linear-gradient(180deg, #5050FF 0%, ${C.accent} 55%, #2E2EDC 100%);
+          box-shadow: 0 14px 30px -10px rgba(58,58,244,0.6), inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -1px 0 rgba(0,0,0,0.15);
+          transition: transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s; }
+        .pt-primary::after { content: ""; position: absolute; top: 0; left: -60%; width: 40%; height: 100%; pointer-events: none; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent); transform: skewX(-20deg); transition: left .7s ease; }
+        .pt-primary:hover { transform: translateY(-1px); }
+        .pt-primary:hover::after { left: 130%; }
+        .pt-primary:active { transform: scale(.985); }
+        .pt-primary:disabled { opacity: .7; cursor: wait; }
+        .pt-ok { background: linear-gradient(180deg, #19A877 0%, ${C.ok} 55%, #0A7350 100%); box-shadow: 0 14px 30px -10px rgba(14,138,95,0.6), inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -1px 0 rgba(0,0,0,0.15); }
+        .pt-badge { flex: none; font-family: ${MONO}; font-size: 13px; font-weight: 600; padding: 8px 10px; border-radius: 12px; background: rgba(255,255,255,0.18); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3); }
+        .pt-ghost { width: 100%; box-sizing: border-box; cursor: pointer; text-decoration: none; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+          padding: 14px 16px; border-radius: 16px; font-family: ${SANS}; font-size: 14px; font-weight: 600; color: ${C.ink};
+          background: rgba(255,255,255,0.42); border: 1px solid rgba(255,255,255,0.85); box-shadow: inset 0 1px 0 rgba(255,255,255,0.95), 0 1px 2px rgba(16,17,20,0.05);
+          transition: background .2s, transform .2s; }
+        .pt-ghost:hover { background: rgba(255,255,255,0.72); }
+        .pt-ghost:active { transform: scale(.985); }
+        .pt-ghost:disabled { opacity: .6; cursor: wait; }
+        .pt-ghost-bad { color: ${C.danger}; }
+        .pt-divider { display: flex; align-items: center; gap: 10px; font-size: 11px; color: #8E9099; }
+        .pt-divider::before, .pt-divider::after { content: ""; flex: 1; height: 1px; background: rgba(16,17,20,0.08); }
+        .pt-note { margin: 0; padding: 10px 12px; border-radius: 14px; font-size: 13px; font-weight: 600; line-height: 1.4; }
+        @media (max-width: 700px) { .pt-card { padding: 18px 15px 16px; border-radius: 26px; } }
+    `
+    const Arrow = () => (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 12h14M13 6l6 6-6 6" />
+        </svg>
+    )
+    const headIcon = isCompleted ? (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+    ) : isRejected ? (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+    ) : (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 16l1.5-5.5A2 2 0 0 1 8.4 9h7.2a2 2 0 0 1 1.9 1.5L19 16" /><rect x="3.5" y="16" width="17" height="4" rx="1.5" /><path d="M9.5 6h5" />
+        </svg>
+    )
+
     return (
-        <div
-            style={{
-                minHeight: "100dvh",
-                background: C.bg,
-                fontFamily: SANS,
-                color: C.ink,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 14,
-                boxSizing: "border-box",
-            }}
-        >
-            <div
-                style={{
-                    width: "100%",
-                    maxWidth: 460,
-                    borderRadius: 28,
-                    padding: "20px 20px 22px",
-                    background: "rgba(255, 255, 255, 0.88)",
-                    backdropFilter: "blur(24px)",
-                    border: "1px solid rgba(255, 255, 255, 0.96)",
-                    boxShadow: "0 30px 70px -24px rgba(16, 17, 24, 0.28), 0 0 0 1px rgba(16, 17, 20, 0.06)",
-                }}
-            >
-                {/* Üst Başlık & Fiyat Rozeti */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                    <div>
-                        <div style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: isCompleted ? C.ok : isRejected ? C.danger : C.accent }}>
-                            PAYTAKSİ ÇAĞRI · #{rideId || "-"}
+        <div className="pt-page">
+            <style>{CSS}</style>
+            <div className="pt-card">
+                <span className="pt-glow" aria-hidden="true" />
+
+                {/* Başlık */}
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span className={"pt-ic" + (isCompleted ? " pt-ic-ok" : isRejected ? " pt-ic-bad" : "")}>{headIcon}</span>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                        <div className="pt-eyebrow">
+                            <span className="pt-live" />
+                            PayTaksi çağrı · #{rideId || "-"}
                         </div>
-                        <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.03em", marginTop: 1 }}>
-                            {isCompleted
-                                ? "Yolculuk Tamamlandı"
-                                : isRejected
-                                  ? "Çağrı Reddedildi"
-                                  : isActiveRide
-                                    ? "Yolculuk Aktif"
-                                    : "Yeni Taksi Çağrısı"}
+                        <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-0.03em", marginTop: 2 }}>
+                            {isCompleted ? "Yolculuk tamamlandı" : isCancelled ? "Yolculuk iptal edildi" : isRejected ? "Çağrı kapandı" : isHandedOver ? "Çağrı başka sürücüde" : isActiveRide ? (ride?.pickedUp ? "Yolcu araçta" : "Yolcuya gidiyorsunuz") : "Yeni taksi çağrısı"}
                         </div>
                     </div>
                     {ride && (
-                        <div style={{ textAlign: "right" }}>
-                            <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 800, color: C.ink, letterSpacing: "-0.04em" }}>
-                                {Math.round(price)} TL
-                            </div>
-                            <div style={{ fontSize: 11, fontWeight: 600, color: C.ink2 }}>{ride.paymentType || "Nakit"}</div>
-                        </div>
+                        <span className="pt-pill">
+                            <b>{Math.round(price)} TL</b>
+                            <span style={{ color: C.ink2, fontWeight: 600 }}>{ride.paymentType || "Nakit"}</span>
+                        </span>
                     )}
                 </div>
 
                 {loading ? (
-                    <p style={{ margin: "22px 0 6px", fontSize: 14, color: C.ink2 }}>Çağrı bilgileri yükleniyor...</p>
+                    <p style={{ margin: "20px 0 4px", fontSize: 14, color: C.ink2 }}>Çağrı bilgileri yükleniyor...</p>
                 ) : err && !ride ? (
-                    <div
-                        style={{
-                            marginTop: 16,
-                            padding: "12px 14px",
-                            borderRadius: 14,
-                            background: "rgba(179, 38, 30, 0.08)",
-                            color: C.danger,
-                            fontSize: 13.5,
-                            fontWeight: 600,
-                        }}
-                    >
-                        {err}
-                    </div>
+                    <p className="pt-note" style={{ marginTop: 16, background: "rgba(179,38,30,0.08)", color: C.danger }}>{err}</p>
                 ) : (
                     <>
-                        {/* Canlı Harita: Sürücü Konumu + Alınış + Varış */}
-                        <div
-                            style={{
-                                marginTop: 14,
-                                height: 220,
-                                borderRadius: 18,
-                                overflow: "hidden",
-                                border: "1px solid rgba(16, 17, 20, 0.09)",
-                                background: "#E8E5DD",
-                                position: "relative",
-                            }}
-                        >
+                        {/* Harita */}
+                        <div className="pt-tile" style={{ marginTop: 16, height: 210, overflow: "hidden", position: "relative", background: "#E8E5DD" }}>
                             <div ref={mapRef} style={{ width: "100%", height: "100%" }} />
                         </div>
 
-                        {/* Güzergâh Bilgisi */}
-                        <div
-                            style={{
-                                marginTop: 12,
-                                padding: "12px 14px",
-                                borderRadius: 16,
-                                background: "rgba(16, 17, 20, 0.035)",
-                                border: "1px solid rgba(16, 17, 20, 0.07)",
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: 9,
-                                fontSize: 13.5,
-                            }}
-                        >
-                            <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
-                                <span style={{ width: 9, height: 9, borderRadius: 99, background: C.accent, marginTop: 5, flexShrink: 0 }} />
-                                <div>
-                                    <div style={{ fontSize: 10.5, fontWeight: 700, color: C.ink2, textTransform: "uppercase" }}>Müşteri Alınış</div>
-                                    <div style={{ fontWeight: 600, color: C.ink }}>{ride?.pickupAddress}</div>
+                        {/* Güzergâh */}
+                        <div className="pt-tile" style={{ marginTop: 12, padding: "4px 14px" }}>
+                            <div className="pt-stop">
+                                <span className="pt-dot" />
+                                <div style={{ minWidth: 0 }}>
+                                    <div className="pt-label">Müşteri alınış</div>
+                                    <div className="pt-place">{ride?.pickupAddress}</div>
                                 </div>
                             </div>
-                            <div style={{ display: "flex", alignItems: "flex-start", gap: 9, borderTop: "1px solid rgba(16,17,20,0.07)", paddingTop: 8 }}>
-                                <span style={{ width: 9, height: 9, borderRadius: 3, background: C.ink, marginTop: 5, flexShrink: 0 }} />
-                                <div>
-                                    <div style={{ fontSize: 10.5, fontWeight: 700, color: C.ink2, textTransform: "uppercase" }}>Varış Noktası</div>
-                                    <div style={{ fontWeight: 600, color: C.ink }}>{cleanDest}</div>
+                            <div className="pt-link" />
+                            <div className="pt-stop">
+                                <span className="pt-dot pt-dot-end" />
+                                <div style={{ minWidth: 0 }}>
+                                    <div className="pt-label">Varış noktası</div>
+                                    <div className="pt-place">{cleanDest}</div>
                                 </div>
                             </div>
                         </div>
 
-                        {err && (
-                            <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 12, background: "rgba(179,38,30,0.08)", color: C.danger, fontSize: 13, fontWeight: 600 }}>
-                                {err}
-                            </div>
-                        )}
-                        {infoMsg && (
-                            <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 12, background: "rgba(14,138,95,0.10)", color: C.ok, fontSize: 13, fontWeight: 600 }}>
-                                {infoMsg}
-                            </div>
-                        )}
+                        {err && <p className="pt-note" style={{ marginTop: 10, background: "rgba(179,38,30,0.08)", color: C.danger }}>{err}</p>}
+                        {infoMsg && <p className="pt-note" style={{ marginTop: 10, background: "rgba(14,138,95,0.10)", color: C.ok }}>{infoMsg}</p>}
 
-                        {/* 1. ONAY BEKLİYOR: Kabul Et / Reddet */}
+                        {/* Onay bekliyor */}
                         {isPending && (
-                            <>
-                                <div style={{ marginTop: 12, fontSize: 12, color: C.ink2, textAlign: "center" }}>
-                                    Müşteri telefon numarası çağrıyı <b>Kabul Et</b> dediğinizde açılacaktır.
-                                </div>
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 10, marginTop: 12 }}>
-                                    <button
-                                        type="button"
-                                        disabled={busy}
-                                        onClick={() => callAction("reject")}
-                                        style={{
-                                            padding: "14px 12px",
-                                            borderRadius: 16,
-                                            border: "1px solid rgba(179, 38, 30, 0.28)",
-                                            background: "rgba(179, 38, 30, 0.08)",
-                                            color: C.danger,
-                                            fontFamily: SANS,
-                                            fontSize: 15,
-                                            fontWeight: 700,
-                                            cursor: busy ? "wait" : "pointer",
-                                        }}
-                                    >
-                                        Reddet
-                                    </button>
-                                    <button
-                                        type="button"
-                                        disabled={busy}
-                                        onClick={() => callAction("accept")}
-                                        style={{
-                                            padding: "14px 14px",
-                                            borderRadius: 16,
-                                            border: 0,
-                                            background: C.ok,
-                                            color: "#fff",
-                                            fontFamily: SANS,
-                                            fontSize: 15.5,
-                                            fontWeight: 700,
-                                            cursor: busy ? "wait" : "pointer",
-                                            boxShadow: "0 14px 28px -10px rgba(14, 138, 95, 0.55)",
-                                        }}
-                                    >
-                                        {busy ? "İşleniyor..." : "Kabul Et"}
-                                    </button>
-                                </div>
-                            </>
+                            <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+                                <button type="button" className="pt-primary pt-ok" disabled={busy} onClick={() => callAction("accept")}>
+                                    <span>{busy ? "İşleniyor..." : "Çağrıyı kabul et"}</span>
+                                    <span className="pt-badge">{Math.round(price)} TL</span>
+                                </button>
+                                <div className="pt-divider">veya</div>
+                                <button type="button" className="pt-ghost pt-ghost-bad" disabled={busy} onClick={() => callAction("reject")}>
+                                    <span>Reddet</span>
+                                </button>
+                                <p style={{ margin: 0, fontSize: 12, color: C.ink2, textAlign: "center" }}>
+                                    Müşteri telefonu, çağrıyı kabul ettiğinizde açılır.
+                                </p>
+                            </div>
                         )}
 
-                        {/* 2. KABUL EDİLDİ (YOLCULUKTA): Müşteri Numarası + Ara + Yol Tarifi + Bitir */}
+                        {/* Aktif yolculuk */}
                         {isActiveRide && (
                             <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-                                <div
-                                    style={{
-                                        padding: "13px 15px",
-                                        borderRadius: 16,
-                                        background: "rgba(58, 58, 244, 0.08)",
-                                        border: "1px solid rgba(58, 58, 244, 0.2)",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "space-between",
-                                        gap: 10,
-                                    }}
-                                >
+                                <div className="pt-tile" style={{ padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                                     <div>
-                                        <div style={{ fontSize: 11, fontWeight: 700, color: C.accent }}>MÜŞTERİ TELEFONU</div>
-                                        <div style={{ fontFamily: MONO, fontSize: 17, fontWeight: 700, color: C.ink, marginTop: 2 }}>
-                                            {ride?.customerPhone || "—"}
-                                        </div>
+                                        <div className="pt-label">Müşteri telefonu</div>
+                                        <div style={{ fontFamily: MONO, fontSize: 17, fontWeight: 600, marginTop: 2 }}>{ride?.customerPhone || "—"}</div>
                                     </div>
-                                    <a
-                                        href={cleanPhoneHref(ride?.customerPhone)}
-                                        style={{
-                                            padding: "10px 16px",
-                                            borderRadius: 12,
-                                            background: C.accent,
-                                            color: "#fff",
-                                            textDecoration: "none",
-                                            fontSize: 13.5,
-                                            fontWeight: 700,
-                                            whiteSpace: "nowrap",
-                                        }}
-                                    >
-                                        Müşteriyi Ara
-                                    </a>
                                 </div>
-
+                                <a className="pt-primary" href={cleanPhoneHref(ride?.customerPhone)}>
+                                    <span>Müşteriyi ara</span>
+                                    <span className="pt-badge"><Arrow /></span>
+                                </a>
                                 {pickupNavUrl && (
-                                    <a
-                                        href={pickupNavUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        style={{
-                                            padding: "12px 14px",
-                                            borderRadius: 14,
-                                            border: "1px solid rgba(16, 17, 20, 0.12)",
-                                            background: "#fff",
-                                            color: C.ink,
-                                            textDecoration: "none",
-                                            textAlign: "center",
-                                            fontSize: 13.5,
-                                            fontWeight: 700,
-                                        }}
-                                    >
-                                        Alınış Konumuna Yol Tarifi Aç (Haritalar) →
+                                    <a className="pt-ghost" href={pickupNavUrl} target="_blank" rel="noreferrer">
+                                        <span>Alınış konumuna yol tarifi</span>
+                                        <Arrow />
                                     </a>
                                 )}
-
-                                <button
-                                    type="button"
-                                    disabled={busy}
-                                    onClick={() => callAction("complete")}
-                                    style={{
-                                        width: "100%",
-                                        padding: "15px 18px",
-                                        borderRadius: 16,
-                                        border: 0,
-                                        background: C.ok,
-                                        color: "#fff",
-                                        fontFamily: SANS,
-                                        fontSize: 15.5,
-                                        fontWeight: 700,
-                                        cursor: busy ? "wait" : "pointer",
-                                        boxShadow: "0 14px 28px -10px rgba(14, 138, 95, 0.55)",
-                                    }}
-                                >
-                                    {busy ? "Tamamlanıyor..." : "Yolcuyu Bıraktım · Yolculuğu Bitir"}
+                                <button type="button" className="pt-primary pt-ok" disabled={busy} onClick={() => callAction("complete")}>
+                                    <span>{busy ? "Tamamlanıyor..." : "Yolcuyu bıraktım · Bitir"}</span>
+                                    <span className="pt-badge"><Arrow /></span>
                                 </button>
+                                {!ride?.pickedUp && (
+                                    <button type="button" className="pt-ghost pt-ghost-bad" disabled={busy} onClick={() => callAction("cancel")}>
+                                        <span>Müşteriye ulaşamadım · İptal et</span>
+                                    </button>
+                                )}
+                                <p style={{ margin: 0, fontSize: 12, color: C.ink2, textAlign: "center" }}>
+                                    Konumunuz müşteriyle canlı paylaşılır. Varış noktasına ulaşınca yolculuk otomatik tamamlanır.
+                                </p>
                             </div>
                         )}
 
-                        {/* 3. TAMAMLANDI */}
+                        {isCancelled && (
+                            <p className="pt-note" style={{ marginTop: 14, textAlign: "center", background: "rgba(179,38,30,0.08)", color: C.danger }}>
+                                Yolculuk iptal edildi. Bu yolculuk için ücret yansımaz.
+                            </p>
+                        )}
+                        {(isRejected || isHandedOver) && (
+                            <p className="pt-note" style={{ marginTop: 14, textAlign: "center", background: "rgba(16,17,20,0.05)", color: C.ink2 }}>
+                                Bu çağrı artık size ait değil (reddedildi, süre doldu veya başka sürücüye aktarıldı).
+                            </p>
+                        )}
+
                         {isCompleted && (
-                            <div
-                                style={{
-                                    marginTop: 14,
-                                    padding: "14px 16px",
-                                    borderRadius: 16,
-                                    background: "rgba(14, 138, 95, 0.10)",
-                                    border: "1px solid rgba(14, 138, 95, 0.24)",
-                                    color: C.ok,
-                                    fontSize: 14,
-                                    fontWeight: 600,
-                                    textAlign: "center",
-                                }}
-                            >
-                                Yolculuk tamamlandı! Durumunuz tekrar <b>Müsait</b> olarak güncellendi.
-                            </div>
+                            <p className="pt-note" style={{ marginTop: 14, textAlign: "center", background: "rgba(14,138,95,0.10)", color: C.ok }}>
+                                Yolculuk tamamlandı. Durumunuz tekrar <b>Müsait</b>.
+                            </p>
                         )}
                     </>
                 )}
 
                 <div style={{ marginTop: 14, textAlign: "center" }}>
                     <a href="/surucu" style={{ fontSize: 12.5, fontWeight: 600, color: C.ink2, textDecoration: "none" }}>
-                        Sürücü Paneline Git →
+                        Sürücü paneline git →
                     </a>
                 </div>
             </div>

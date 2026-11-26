@@ -52,6 +52,7 @@ interface RideRow {
     customerPhone: string
     paymentType: string
     status: string
+    estimatedPrice?: number
     whatsAppSent: boolean
     createdAt: string
     driver: { fullName: string; plate: string } | null
@@ -608,7 +609,8 @@ export default function AdminApp() {
     const dayLabel = `${aSel + 1} ${MONTHS[aMonth]} ${now.getFullYear()}`
 
     const activeDriverCount = drivers.filter((d) => d.isActiveNow).length
-    const grossRevenue = rides.length * 250
+    const completedRides = rides.filter((r) => r.status === "Tamamlandı")
+    const grossRevenue = Math.round(completedRides.reduce((s, r) => s + Number(r.estimatedPrice || 250), 0))
     const commission = Math.round(grossRevenue * 0.05)
     const cashRides = rides.filter((r) => r.paymentType === "Nakit").length
 
@@ -666,7 +668,7 @@ export default function AdminApp() {
             title: "Finans",
             sub: "Gerçek yolculuklardan hesaplanan ciro ve komisyon",
             stats: [
-                { label: "Toplam Ciro", value: `₺${grossRevenue.toLocaleString("tr-TR")}`, hint: `${rides.length} çağrı` },
+                { label: "Toplam Ciro", value: `₺${grossRevenue.toLocaleString("tr-TR")}`, hint: `${completedRides.length} tamamlanan` },
                 { label: "Komisyon (%5)", value: `₺${commission.toLocaleString("tr-TR")}`, hint: "platform payı" },
                 { label: "Sürücü Payı", value: `₺${(grossRevenue - commission).toLocaleString("tr-TR")}`, hint: "%95" },
                 { label: "Nakit Çağrı", value: String(cashRides), hint: "araçta ödeme" },

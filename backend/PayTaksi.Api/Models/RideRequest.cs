@@ -1,5 +1,14 @@
 namespace PayTaksi.Api.Models;
 
+public static class RideStatus
+{
+    public const string Pending = "Onay Bekliyor";      // sürücüye iletildi, cevap bekleniyor
+    public const string Active = "Yolculukta";           // sürücü kabul etti (müşteriye gidiyor / yolculukta)
+    public const string Completed = "Tamamlandı";        // varış noktasına ulaşıldı -> kazanç yazılır
+    public const string Cancelled = "İptal Edildi";      // müşteriye ulaşılamadı -> kazanç yazılmaz
+    public const string NoService = "Hizmet Verilemedi"; // hiçbir sürücü kabul etmedi
+}
+
 public class RideRequest
 {
     public int Id { get; set; }
@@ -17,4 +26,19 @@ public class RideRequest
     public string Status { get; set; } = "Bekliyor";
     public bool WhatsAppSent { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    /// <summary>Müşteri takip sayfası için tahmin edilemez anahtar.</summary>
+    public string TrackToken { get; set; } = Guid.NewGuid().ToString("N");
+    /// <summary>Çağrıyı reddeden / cevap vermeyen sürücü id'leri (virgüllü).</summary>
+    public string TriedDriverIds { get; set; } = string.Empty;
+    /// <summary>Çağrının mevcut sürücüye iletildiği an (zaman aşımı için).</summary>
+    public DateTime? DispatchedAt { get; set; }
+    public DateTime? AcceptedAt { get; set; }
+    /// <summary>Sürücü alınış noktasına ulaşınca dolar (yolcu bindi).</summary>
+    public DateTime? PickedUpAt { get; set; }
+    public DateTime? CompletedAt { get; set; }
+    public string? CancelReason { get; set; }
+    public double? DriverLat { get; set; }
+    public double? DriverLng { get; set; }
+    public DateTime? DriverLocationAt { get; set; }
 }

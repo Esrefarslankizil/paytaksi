@@ -131,6 +131,53 @@ public class WhatsAppService
         }
     }
 
+    public async Task SendNoServiceToCustomerAsync(string? customerPhone)
+    {
+        var to = NormalizePhone(customerPhone ?? "");
+        if (to.Length < 10 || to.Length > 15) return; // geçerli bir telefon değil (ör. "Üye Hesabı")
+
+        const string text = "Üzgünüz, şu an size hizmet veremiyoruz. Tüm sürücülerimiz meşgul ya da müsait değil. Lütfen birkaç dakika sonra tekrar deneyin. — PayTaksi";
+        var phoneNumberId = _config["WhatsApp:PhoneNumberId"];
+        var accessToken = _config["WhatsApp:AccessToken"];
+        var apiVersion = _config["WhatsApp:ApiVersion"] ?? "v21.0";
+        if (string.IsNullOrWhiteSpace(phoneNumberId) || string.IsNullOrWhiteSpace(accessToken) || accessToken.StartsWith("BURAYA_"))
+        {
+            _logger.LogInformation("[WhatsApp TEST MODU] Müşteriye ({Phone}): {Text}", to, text);
+            return;
+        }
+
+        var url = $"https://graph.facebook.com/{apiVersion}/{phoneNumberId}/messages";
+        async Task<(bool ok, string body)> Post(object payload)
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, url);
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            req.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
+            using var res = await _http.SendAsync(req);
+            return (res.IsSuccessStatusCode, await res.Content.ReadAsStringAsync());
+        }
+
+        try
+        {
+            // Önce onaylı şablon (müşteri bota hiç yazmamış olsa da teslim edilir)
+            var tplName = _config["WhatsApp:NoServiceTemplateName"] ?? "hizmet_verilemiyor";
+            var (ok, body) = await Post(new
+            {
+                messaging_product = "whatsapp",
+                to,
+                type = "template",
+                template = new { name = tplName, language = new { code = _config["WhatsApp:TemplateLang"] ?? "tr" } }
+            });
+            if (ok) return;
+            _logger.LogWarning("Müşteri şablon mesajı gönderilemedi, düz metin deneniyor: {Body}", body);
+            var (ok2, body2) = await Post(new { messaging_product = "whatsapp", to, type = "text", text = new { body = text } });
+            if (!ok2) _logger.LogWarning("Müşteri düz metin mesajı da gönderilemedi: {Body}", body2);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Müşteriye hizmet verilemiyor mesajı gönderilemedi.");
+        }
+    }
+
     public static string NormalizePhone(string raw)
     {
         var digits = new string(raw.Where(char.IsDigit).ToArray());

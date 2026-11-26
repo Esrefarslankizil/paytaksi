@@ -50,6 +50,7 @@ interface RideItem {
     customerPhone: string
     paymentType: string
     status: string
+    estimatedPrice?: number
     whatsAppSent: boolean
     createdAt: string
     driver: { fullName: string; plate: string } | null
@@ -217,8 +218,9 @@ export default function DriverApp() {
 
     const isPaused = Boolean(driver?.pausedUntil && new Date(driver.pausedUntil) > new Date())
     const myRides = driver ? rides.filter((r) => !r.driver || r.driver.plate === driver.plate) : rides
-    const cashCount = myRides.filter((r) => r.paymentType === "Nakit").length
-    const walletCount = myRides.length - cashCount
+    const doneForCount = myRides.filter((r) => r.status === "Tamamlandı")
+    const cashCount = doneForCount.filter((r) => r.paymentType === "Nakit").length
+    const walletCount = doneForCount.length - cashCount
 
     return (
         <div
@@ -712,7 +714,8 @@ export default function DriverApp() {
 
                 {/* 3. SEKME: KAZANÇ ÖZETİ (Ana site cam/pt-tile tasarım diliyle tam uyumlu) */}
                 {tab === "earnings" && (() => {
-                    const gross = myRides.length * 250
+                    const doneRides = myRides.filter((r) => r.status === "Tamamlandı")
+                    const gross = Math.round(doneRides.reduce((s, r) => s + Number(r.estimatedPrice || 250), 0))
                     const comm = Math.round(gross * 0.05)
                     const net = gross - comm
                     return (
@@ -758,7 +761,7 @@ export default function DriverApp() {
                                             whiteSpace: "nowrap",
                                         }}
                                     >
-                                        {myRides.length} yolculuk
+                                        {doneRides.length} yolculuk
                                     </span>
                                 </div>
 

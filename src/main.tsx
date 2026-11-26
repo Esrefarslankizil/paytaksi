@@ -4,6 +4,7 @@ import StaysiftHero from "./StaysiftHero"
 import AdminApp from "./admin/AdminApp"
 import DriverApp from "./driver/DriverApp"
 import RideCompletePage from "./driver/RideCompletePage"
+import TrackPage from "./driver/TrackPage"
 import AuthPage from "./auth/AuthPage"
 import AboutPage from "./components/AboutPage"
 import PartnerPage from "./components/PartnerPage"
@@ -22,6 +23,9 @@ function App() {
     }
     if (path.startsWith("/yolculuk-tamamla")) {
         return <RideCompletePage />
+    }
+    if (path.startsWith("/takip")) {
+        return <TrackPage />
     }
     if (path.startsWith("/hakkimizda")) {
         return <AboutPage />

@@ -48,6 +48,8 @@ builder.Services
 builder.Services.AddAuthorization();
 
 builder.Services.AddHttpClient<WhatsAppService>();
+builder.Services.AddScoped<RideDispatchService>();
+builder.Services.AddHostedService<RideWatchdogService>();
 
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
     p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
@@ -82,7 +84,17 @@ using (var scope = app.Services.CreateScope())
         {
             "ALTER TABLE `RideRequests` ADD COLUMN `DestinationLat` double NULL;",
             "ALTER TABLE `RideRequests` ADD COLUMN `DestinationLng` double NULL;",
-            "ALTER TABLE `RideRequests` ADD COLUMN `EstimatedPrice` decimal(18,2) NOT NULL DEFAULT 250;"
+            "ALTER TABLE `RideRequests` ADD COLUMN `EstimatedPrice` decimal(18,2) NOT NULL DEFAULT 250;",
+            "ALTER TABLE `RideRequests` ADD COLUMN `TrackToken` varchar(64) NOT NULL DEFAULT '';",
+            "ALTER TABLE `RideRequests` ADD COLUMN `TriedDriverIds` longtext NOT NULL;",
+            "ALTER TABLE `RideRequests` ADD COLUMN `DispatchedAt` datetime(6) NULL;",
+            "ALTER TABLE `RideRequests` ADD COLUMN `AcceptedAt` datetime(6) NULL;",
+            "ALTER TABLE `RideRequests` ADD COLUMN `PickedUpAt` datetime(6) NULL;",
+            "ALTER TABLE `RideRequests` ADD COLUMN `CompletedAt` datetime(6) NULL;",
+            "ALTER TABLE `RideRequests` ADD COLUMN `CancelReason` longtext NULL;",
+            "ALTER TABLE `RideRequests` ADD COLUMN `DriverLat` double NULL;",
+            "ALTER TABLE `RideRequests` ADD COLUMN `DriverLng` double NULL;",
+            "ALTER TABLE `RideRequests` ADD COLUMN `DriverLocationAt` datetime(6) NULL;"
         })
         {
             try { await db.Database.ExecuteSqlRawAsync(sql); } catch { }
@@ -96,7 +108,17 @@ using (var scope = app.Services.CreateScope())
             "ALTER TABLE \"Drivers\" ADD COLUMN \"IsBusy\" INTEGER NOT NULL DEFAULT 0;",
             "ALTER TABLE \"RideRequests\" ADD COLUMN \"DestinationLat\" REAL NULL;",
             "ALTER TABLE \"RideRequests\" ADD COLUMN \"DestinationLng\" REAL NULL;",
-            "ALTER TABLE \"RideRequests\" ADD COLUMN \"EstimatedPrice\" REAL NOT NULL DEFAULT 250;"
+            "ALTER TABLE \"RideRequests\" ADD COLUMN \"EstimatedPrice\" REAL NOT NULL DEFAULT 250;",
+            "ALTER TABLE \"RideRequests\" ADD COLUMN \"TrackToken\" TEXT NOT NULL DEFAULT '';",
+            "ALTER TABLE \"RideRequests\" ADD COLUMN \"TriedDriverIds\" TEXT NOT NULL DEFAULT '';",
+            "ALTER TABLE \"RideRequests\" ADD COLUMN \"DispatchedAt\" TEXT NULL;",
+            "ALTER TABLE \"RideRequests\" ADD COLUMN \"AcceptedAt\" TEXT NULL;",
+            "ALTER TABLE \"RideRequests\" ADD COLUMN \"PickedUpAt\" TEXT NULL;",
+            "ALTER TABLE \"RideRequests\" ADD COLUMN \"CompletedAt\" TEXT NULL;",
+            "ALTER TABLE \"RideRequests\" ADD COLUMN \"CancelReason\" TEXT NULL;",
+            "ALTER TABLE \"RideRequests\" ADD COLUMN \"DriverLat\" REAL NULL;",
+            "ALTER TABLE \"RideRequests\" ADD COLUMN \"DriverLng\" REAL NULL;",
+            "ALTER TABLE \"RideRequests\" ADD COLUMN \"DriverLocationAt\" TEXT NULL;"
         })
         {
             try { await db.Database.ExecuteSqlRawAsync(sql); } catch { }
