@@ -5180,40 +5180,13 @@ export default function StaysiftHero(props: HeroProps) {
                                                     {basePrice} TL
                                                 </div>
                                             </div>
-                                            <span className="pt-pill">
-                                                Üyelere <b>{memberPrice} TL</b>
-                                                <span className="pt-pill-tag">-%15</span>
+                                            <span className="pt-pill" style={{ background: "rgba(22, 163, 74, 0.09)", borderColor: "rgba(22, 163, 74, 0.22)" }}>
+                                                <b style={{ color: "#15803d" }}>Nakit</b>
                                             </span>
                                         </div>
 
                                         {/* Aksiyonlar */}
                                         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
-                                            <button
-                                                type="button"
-                                                className="pt-primary"
-                                                onClick={() => {
-                                                    trackEvent("wallet_click")
-                                                    const hasToken = Boolean(authUser || localStorage.getItem("paytaksi_jwt_token"))
-                                                    if (!hasToken) {
-                                                        window.location.href = "/giris"
-                                                        return
-                                                    }
-                                                    setWalletAmount(memberPrice)
-                                                    setPhoneErr(null)
-                                                    setCallStep("topup")
-                                                }}
-                                            >
-                                                <span style={{ flex: 1, minWidth: 0 }}>
-                                                    <span style={{ display: "block", fontSize: 15, fontWeight: 700, letterSpacing: "-0.02em" }}>
-                                                        {authUser ? "Online öde, %15 indirimle çağır" : "Giriş yap, %15 indirimle çağır"}
-                                                    </span>
-                                                    <span style={{ display: "block", fontSize: 12, opacity: 0.82, marginTop: 2 }}>
-                                                        {authUser ? "Bu yolculuk için tek seferlik güvenli kart ödemesi" : "Google veya e-posta ile saniyeler içinde giriş"}
-                                                    </span>
-                                                </span>
-                                                <span className="pt-badge">{memberPrice} TL</span>
-                                            </button>
-                                            <div className="pt-divider">veya</div>
                                             <button
                                                 type="button"
                                                 className="pt-tile pt-ghost"
