@@ -314,7 +314,7 @@ function DailyCalls({
     daily: DailyPoint[]
 }) {
     const days = daily.length || 30
-    const data = daily.map((d) => d.completed + d.callClick)
+    const data = daily.map((d) => d.completed)
     const max = Math.max(...data, 1)
     const sel = Math.max(0, Math.min(day, days - 1))
     const left = (sel / days) * 100
@@ -322,7 +322,7 @@ function DailyCalls({
     const center = left + width / 2
 
     const BAR_H = 56
-    const barPx = (v: number) => (v === 0 ? 4 : Math.max(8, (v / max) * BAR_H))
+    const barPx = (v: number) => (v <= 0 ? 3 : Math.max(4, Math.round((v / max) * BAR_H)))
 
     const barsRef = useRef<HTMLDivElement>(null)
     const dragging = useRef(false)
