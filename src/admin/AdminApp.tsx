@@ -679,7 +679,7 @@ export default function AdminApp() {
                 new Date(r.createdAt).toLocaleDateString("tr-TR"),
                 `${r.pickupAddress} → ${r.destinationAddress}`,
                 r.paymentType,
-                "₺250",
+                `₺${Math.round(Number(r.estimatedPrice || 250)).toLocaleString("tr-TR")}`,
                 r.status,
             ]),
         },
