@@ -523,6 +523,7 @@ export default function AdminApp() {
     const [daily, setDaily] = useState<DailyPoint[]>([])
     const [rides, setRides] = useState<RideRow[]>([])
     const [drivers, setDrivers] = useState<DriverRow[]>([])
+    const [selectedDriver, setSelectedDriver] = useState<DriverRow | null>(null)
     const [users, setUsers] = useState<UserRow[]>([])
 
     useEffect(() => {
@@ -852,7 +853,13 @@ export default function AdminApp() {
                                 </div>
                             ) : (
                                 pageData.rows.map((r, i) => (
-                                    <div key={i} className="ad-row">
+                                    <div
+                                        key={i}
+                                        className="ad-row"
+                                        onClick={tab === "drivers" ? () => setSelectedDriver(drivers[i] ?? null) : undefined}
+                                        style={tab === "drivers" ? { cursor: "pointer" } : undefined}
+                                        title={tab === "drivers" ? "Komisyon ve ödeme detayını görmek için tıklayın" : undefined}
+                                    >
                                         {r.map((cell, j) =>
                                             j === r.length - 1 ? (
                                                 <div key={j}>
@@ -870,6 +877,176 @@ export default function AdminApp() {
                         </div>
                     </>
                 )}
+                {selectedDriver && (() => {
+                    const drvRides = rides.filter(
+                        (r) =>
+                            r.driver &&
+                            (r.driver.plate === selectedDriver.plate || r.driver.fullName === selectedDriver.fullName)
+                    )
+                    const done = drvRides.filter((r) => r.status === "Tamamlandı")
+                    const cashDone = done.filter((r) => r.paymentType === "Nakit")
+                    const onlineDone = done.filter((r) => r.paymentType !== "Nakit")
+
+                    const sumPrice = (arr: RideRow[]) =>
+                        Math.round(arr.reduce((s, r) => s + Number(r.estimatedPrice || 250), 0))
+
+                    const cashGross = sumPrice(cashDone)
+                    const cashComm = Math.round(cashGross * 0.05)
+                    const cashDriverKeep = cashGross - cashComm
+
+                    const onlineGross = sumPrice(onlineDone)
+                    const onlineComm = Math.round(onlineGross * 0.05)
+                    const onlinePayout = onlineGross - onlineComm
+
+                    const totalGross = cashGross + onlineGross
+                    const totalComm = cashComm + onlineComm
+                    const netTransfer = onlinePayout - cashComm // >0: sürücüye öde, <0: sürücüden komisyon al
+
+                    const fmt = (n: number) => `₺${Math.abs(n).toLocaleString("tr-TR")}`
+
+                    return (
+                        <div
+                            role="dialog"
+                            aria-modal="true"
+                            onClick={() => setSelectedDriver(null)}
+                            style={{
+                                position: "fixed",
+                                inset: 0,
+                                zIndex: 9999,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                padding: 16,
+                                background: "rgba(16, 17, 20, 0.42)",
+                                backdropFilter: "blur(8px)",
+                                WebkitBackdropFilter: "blur(8px)",
+                            }}
+                        >
+                            <div
+                                onClick={(e) => e.stopPropagation()}
+                                style={{
+                                    width: "100%",
+                                    maxWidth: 460,
+                                    borderRadius: 28,
+                                    padding: "22px 22px 20px",
+                                    background: "linear-gradient(155deg, rgba(255,255,255,0.92) 0%, rgba(246,247,251,0.86) 100%)",
+                                    backdropFilter: "blur(32px) saturate(160%)",
+                                    border: "1px solid rgba(255,255,255,0.95)",
+                                    boxShadow: "0 36px 90px -24px rgba(16,17,24,0.45), 0 0 0 1px rgba(16,17,20,0.06)",
+                                    fontFamily: SANS,
+                                    color: C.ink,
+                                }}
+                            >
+                                {/* Üst Başlık */}
+                                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                                    <div>
+                                        <div className="ad-head" style={{ color: C.accent }}>SÜRÜCÜ HESAPLAŞMA · %5 KOMİSYON</div>
+                                        <div style={{ fontSize: 21, fontWeight: 700, letterSpacing: "-0.03em", marginTop: 2 }}>
+                                            {selectedDriver.fullName}
+                                        </div>
+                                        <div style={{ fontSize: 12.5, color: C.ink2, marginTop: 2, fontFamily: MONO }}>
+                                            {selectedDriver.plate} · {selectedDriver.phone}
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedDriver(null)}
+                                        aria-label="Kapat"
+                                        style={{
+                                            width: 32,
+                                            height: 32,
+                                            borderRadius: 999,
+                                            border: "1px solid rgba(16,17,20,0.10)",
+                                            background: "rgba(255,255,255,0.8)",
+                                            cursor: "pointer",
+                                            fontWeight: 700,
+                                            color: C.ink,
+                                        }}
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+
+                                {/* Özet Kutular */}
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 16 }}>
+                                    <div style={{ padding: "12px 14px", borderRadius: 16, background: "rgba(255,255,255,0.75)", border: "1px solid rgba(16,17,20,0.07)" }}>
+                                        <div className="ad-head">Tamamlanan</div>
+                                        <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 700, marginTop: 3 }}>{done.length}</div>
+                                        <div style={{ fontSize: 11.5, color: C.ink2 }}>Toplam ciro: {fmt(totalGross)}</div>
+                                    </div>
+                                    <div style={{ padding: "12px 14px", borderRadius: 16, background: "rgba(58,58,244,0.07)", border: "1px solid rgba(58,58,244,0.16)" }}>
+                                        <div className="ad-head" style={{ color: C.accent }}>Sisteme Kalan (%5)</div>
+                                        <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 700, color: C.accent, marginTop: 3 }}>{fmt(totalComm)}</div>
+                                        <div style={{ fontSize: 11.5, color: C.ink2 }}>Toplam platform payı</div>
+                                    </div>
+                                </div>
+
+                                {/* Nakit Kırılımı */}
+                                <div style={{ marginTop: 12, padding: "13px 14px", borderRadius: 16, background: "rgba(255,255,255,0.72)", border: "1px solid rgba(16,17,20,0.07)" }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                        <span style={{ fontSize: 13, fontWeight: 700 }}>Nakit Yolculuklar ({cashDone.length})</span>
+                                        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700 }}>{fmt(cashGross)}</span>
+                                    </div>
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: C.ink2, marginTop: 6 }}>
+                                        <span>Sürücüye kalan (%95)</span>
+                                        <span style={{ fontFamily: MONO, fontWeight: 600, color: C.ink }}>{fmt(cashDriverKeep)}</span>
+                                    </div>
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "#B3261E", marginTop: 4 }}>
+                                        <span>Sisteme ödenecek komisyon (%5)</span>
+                                        <span style={{ fontFamily: MONO, fontWeight: 700 }}>{fmt(cashComm)}</span>
+                                    </div>
+                                </div>
+
+                                {/* Online Kırılımı */}
+                                <div style={{ marginTop: 10, padding: "13px 14px", borderRadius: 16, background: "rgba(255,255,255,0.72)", border: "1px solid rgba(16,17,20,0.07)" }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                        <span style={{ fontSize: 13, fontWeight: 700 }}>Online Yolculuklar ({onlineDone.length})</span>
+                                        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700 }}>{fmt(onlineGross)}</span>
+                                    </div>
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "#0E8A5F", marginTop: 6 }}>
+                                        <span>Sürücüye ödenecek (%95)</span>
+                                        <span style={{ fontFamily: MONO, fontWeight: 700 }}>{fmt(onlinePayout)}</span>
+                                    </div>
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: C.ink2, marginTop: 4 }}>
+                                        <span>Sisteme kalan komisyon (%5)</span>
+                                        <span style={{ fontFamily: MONO, fontWeight: 600, color: C.accent }}>{fmt(onlineComm)}</span>
+                                    </div>
+                                </div>
+
+                                {/* Net Hesaplaşma */}
+                                <div
+                                    style={{
+                                        marginTop: 12,
+                                        padding: "14px 16px",
+                                        borderRadius: 16,
+                                        background: netTransfer > 0 ? "rgba(14,138,95,0.10)" : netTransfer < 0 ? "rgba(179,38,30,0.09)" : "rgba(16,17,20,0.05)",
+                                        border: `1px solid ${netTransfer > 0 ? "rgba(14,138,95,0.24)" : netTransfer < 0 ? "rgba(179,38,30,0.22)" : "rgba(16,17,20,0.10)"}`,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        gap: 10,
+                                    }}
+                                >
+                                    <div>
+                                        <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: netTransfer > 0 ? "#0E8A5F" : netTransfer < 0 ? "#B3261E" : C.ink2 }}>
+                                            {netTransfer > 0
+                                                ? "Sürücüye Ödenecek Net Tutar"
+                                                : netTransfer < 0
+                                                  ? "Sürücüden Alınacak Net Komisyon"
+                                                  : "Hesaplaşma Dengede"}
+                                        </div>
+                                        <div style={{ fontSize: 11.5, color: C.ink2, marginTop: 2 }}>
+                                            Online ödeme − Nakit komisyon
+                                        </div>
+                                    </div>
+                                    <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 800, color: netTransfer > 0 ? "#0E8A5F" : netTransfer < 0 ? "#B3261E" : C.ink }}>
+                                        {fmt(netTransfer)}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )
+                })()}
             </div>
         </div>
     )
