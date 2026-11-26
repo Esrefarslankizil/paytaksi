@@ -1009,7 +1009,13 @@ export default function StaysiftHero(props: HeroProps) {
         })
             .then((r) => (r.ok ? r.json() : null))
             .then((u) => {
-                if (u) setAuthUser(u)
+                if (u) {
+                    if (Array.isArray(u.roles) && u.roles.includes("Admin")) {
+                        window.location.replace("/admin")
+                        return
+                    }
+                    setAuthUser(u)
+                }
             })
             .catch(() => {})
     }, [])

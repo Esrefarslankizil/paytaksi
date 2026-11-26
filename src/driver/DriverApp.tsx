@@ -85,7 +85,11 @@ export default function DriverApp() {
         fetch(`${apiBase}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
             .then((r) => (r.ok ? r.json() : null))
             .then((u: AuthUser | null) => {
-                if (u && (u.roles.includes("Taksici") || u.roles.includes("Admin"))) {
+                if (u && u.roles.includes("Admin") && !u.roles.includes("Taksici")) {
+                    window.location.replace("/admin")
+                    return
+                }
+                if (u && u.roles.includes("Taksici")) {
                     setDriverUser(u)
                 }
             })

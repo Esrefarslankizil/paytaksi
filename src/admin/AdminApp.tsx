@@ -707,7 +707,7 @@ export default function AdminApp() {
 
             <div style={{ maxWidth: 1120, margin: "0 auto", padding: "18px 16px 48px" }}>
                 <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 56 }}>
-                    <a href="/" style={{ display: "flex", alignItems: "center", gap: 9, fontWeight: 600, fontSize: 17, letterSpacing: "-0.03em", color: C.ink, textDecoration: "none" }}>
+                    <a href="/admin" style={{ display: "flex", alignItems: "center", gap: 9, fontWeight: 600, fontSize: 17, letterSpacing: "-0.03em", color: C.ink, textDecoration: "none" }}>
                         <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
                             <rect x="3" y="10" width="18" height="7.5" rx="2.5" fill="none" stroke="#101114" strokeWidth="1.8" />
                             <path d="M6 10L8 5.5h8l2 4.5" fill="none" stroke="#101114" strokeWidth="1.8" strokeLinejoin="round" />
