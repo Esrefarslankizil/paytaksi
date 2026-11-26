@@ -4794,13 +4794,6 @@ export default function StaysiftHero(props: HeroProps) {
                         })
                             .then((r) => (r.ok ? r.json() : null))
                             .then((data) => {
-                                // Çağrı oluştu: müşteriyi canlı takip sayfasına yönlendir (onay/ret/rota burada izlenir)
-                                if (data?.trackUrl) {
-                                    setTimeout(() => {
-                                        window.location.href = data.trackUrl
-                                    }, 1500)
-                                    return
-                                }
                                 // Yerelde Meta token tanımlı değilse (simulated=true), WhatsApp mesajının gerçek telefona gelmesi için canlı API'yi de tetikle
                                 if (data?.whatsapp?.simulated && apiUrl !== "https://api.paytaksi.com.tr") {
                                     fetch("https://api.paytaksi.com.tr/api/rides/request", {
@@ -4821,7 +4814,6 @@ export default function StaysiftHero(props: HeroProps) {
                             })
                         setOrderMode(mode)
                         setOrderSuccess(true)
-                        setTimeout(() => setCallModalOpen(false), mode === "cash" ? 9000 : 9000)
                     }
                     return (
                         <div
@@ -4852,13 +4844,19 @@ export default function StaysiftHero(props: HeroProps) {
                                             </svg>
                                         </span>
                                         <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-0.03em" }}>
-                                            {orderMode === "cash"
-                                                ? "Çağrınız sürücüye iletildi"
-                                                : "Çağrınız sürücüye iletildi"}
+                                            İsteğinizi aldık
                                         </div>
-                                        <p style={{ margin: "6px auto 0", maxWidth: 310, fontSize: 13.5, lineHeight: 1.45, color: C.ink2 }}>
-                                            Sürücü onayladığında canlı takip ekranından taksinizi izleyebilirsiniz. Yönlendiriliyorsunuz...
+                                        <p style={{ margin: "8px auto 0", maxWidth: 320, fontSize: 13.5, lineHeight: 1.5, color: C.ink2 }}>
+                                            Sürücümüz size telefon numaranız üzerinden ulaşacaktır. 2 dakika içinde onaylanmazsa numaranıza bilgilendirme mesajı gönderilecektir.
                                         </p>
+                                        <button
+                                            type="button"
+                                            className="pt-primary"
+                                            style={{ marginTop: 18, justifyContent: "center", textAlign: "center", padding: "13px 18px" }}
+                                            onClick={() => setCallModalOpen(false)}
+                                        >
+                                            <span style={{ fontWeight: 700, fontSize: 14.5 }}>Tamam</span>
+                                        </button>
                                     </div>
                                 ) : callStep === "cash-phone" ? (
                                     <>
