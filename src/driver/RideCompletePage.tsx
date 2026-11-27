@@ -489,8 +489,17 @@ export default function RideCompletePage() {
                         {/* Onay bekliyor */}
                         {isPending && (() => {
                             const rawTs = ride?.dispatchedAt || ride?.createdAt
-                            const parsedTs = rawTs ? new Date(rawTs).getTime() : nowMs
-                            const baseTs = Number.isFinite(parsedTs) ? parsedTs : nowMs
+                            let baseTs = nowMs
+                            if (typeof rawTs === "string" && rawTs.length > 0) {
+                                const hasTz = /[zZ]|[+-]\d{2}:?\d{2}$/.test(rawTs)
+                                const localParsed = new Date(rawTs).getTime()
+                                const utcParsed = hasTz ? localParsed : new Date(rawTs + "Z").getTime()
+                                // AWS sunucusu UTC, yerel Windows UTC+3: şu ana en yakın geçerli zamanı seç
+                                const dLocal = Number.isFinite(localParsed) ? Math.abs(nowMs - localParsed) : Infinity
+                                const dUtc = Number.isFinite(utcParsed) ? Math.abs(nowMs - utcParsed) : Infinity
+                                baseTs = dUtc < dLocal ? utcParsed : localParsed
+                                if (!Number.isFinite(baseTs)) baseTs = nowMs
+                            }
                             const remainSec = Math.max(0, 120 - Math.max(0, Math.floor((nowMs - baseTs) / 1000)))
                             const mm = String(Math.floor(remainSec / 60)).padStart(2, "0")
                             const ss = String(remainSec % 60).padStart(2, "0")
@@ -526,7 +535,7 @@ export default function RideCompletePage() {
                                             />
                                         </div>
                                     </div>
-                                    <button type="button" className="pt-primary pt-ok" disabled={busy || remainSec === 0} onClick={() => callAction("accept")}>
+                                    <button type="button" className="pt-primary pt-ok" disabled={busy} onClick={() => callAction("accept")}>
                                         <span>{busy ? "İşleniyor..." : "Çağrıyı kabul et"}</span>
                                         <span className="pt-badge">{Math.round(price)} TL</span>
                                     </button>
