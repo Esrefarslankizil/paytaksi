@@ -29,11 +29,15 @@ public class WhatsAppService
 
         var actionLink = $"https://paytaksi.com.tr/yolculuk-tamamla?id={ride.Id}";
         var priceText = ride.EstimatedPrice > 0 ? $"{Math.Round(ride.EstimatedPrice)} TL" : "250 TL";
+        var tags = new List<string>();
+        if (ride.IsShared) tags.Add($"Paylaşımlı ({ride.PassengerCount} kişi)");
+        if (ride.ScheduledAt.HasValue) tags.Add($"Randevu {ride.ScheduledAt.Value:dd.MM HH:mm}");
+        var tagText = tags.Count > 0 ? " · " + string.Join(" · ", tags) : "";
         var cleanDest = System.Text.RegularExpressions.Regex.Replace(ride.DestinationAddress ?? "", @"\s*\(https?://[^)]+\)", "").Trim();
 
         var lines = new List<string>
         {
-            "🚖 *Yeni PayTaksi Çağrısı*",
+            $"🚖 *Yeni PayTaksi Çağrısı*{tagText}",
             $"📍 *Alış:* {ride.PickupAddress}",
             $"🏁 *Varış:* {cleanDest}",
             $"💰 *Ücret:* {priceText} ({ride.PaymentType})",

@@ -12,6 +12,7 @@ public class RideDispatchService
 
     public const int DriverResponseSeconds = 120;     // sürücü bu sürede cevap vermezse sıradakine geçer
     public const int PickupTimeoutMinutes = 40;       // kabul sonrası yolcuya ulaşılamazsa iptal
+    public const int ScheduledLeadMinutes = 20;       // randevuya bu kadar dakika kala sürücüye otomatik düşer
     public const double PickupRadiusMeters = 120;     // alınış noktasına bu kadar yaklaşınca yolcu bindi sayılır
     public const double DestinationRadiusMeters = 150; // varışa bu kadar yaklaşınca yolculuk otomatik tamamlanır
 
@@ -65,6 +66,41 @@ public class RideDispatchService
         ride.WhatsAppSent = wa.Sent;
         await _db.SaveChangesAsync();
         return (next, wa);
+    }
+
+    /// <summary>Aynı yöne giden açık bir paylaşımlı çağrı varsa aynı taksi/grupta eşleştirir.</summary>
+    public async Task<(Driver? driver, WhatsAppSendResult? wa)?> TryMatchSharedAsync(RideRequest ride)
+    {
+        if (!ride.IsShared || !ride.PickupLat.HasValue || !ride.PickupLng.HasValue || !ride.DestinationLat.HasValue || !ride.DestinationLng.HasValue)
+            return null;
+
+        var since = DateTime.Now.AddMinutes(-15);
+        var candidates = await _db.RideRequests
+            .Include(r => r.AssignedDriver)
+            .Where(r => r.Id != ride.Id && r.IsShared && r.AssignedDriverId != null && r.CreatedAt >= since &&
+                        (r.Status == RideStatus.Pending || r.Status == RideStatus.Active))
+            .ToListAsync();
+
+        var match = candidates.FirstOrDefault(c =>
+            c.PickupLat.HasValue && c.PickupLng.HasValue && c.DestinationLat.HasValue && c.DestinationLng.HasValue &&
+            c.PassengerCount + ride.PassengerCount <= 3 &&
+            DistanceMeters(ride.PickupLat.Value, ride.PickupLng.Value, c.PickupLat.Value, c.PickupLng.Value) <= 1500 &&
+            DistanceMeters(ride.DestinationLat.Value, ride.DestinationLng.Value, c.DestinationLat.Value, c.DestinationLng.Value) <= 2000);
+
+        if (match?.AssignedDriver is null) return null;
+
+        var groupId = string.IsNullOrEmpty(match.SharedGroupId) ? Guid.NewGuid().ToString("N")[..8] : match.SharedGroupId;
+        match.SharedGroupId = groupId;
+        ride.SharedGroupId = groupId;
+        ride.AssignedDriverId = match.AssignedDriverId;
+        ride.Status = RideStatus.Pending;
+        ride.DispatchedAt = DateTime.Now;
+        await _db.SaveChangesAsync();
+
+        var wa = await _wa.SendRideRequestAsync(match.AssignedDriver, ride);
+        ride.WhatsAppSent = wa.Sent;
+        await _db.SaveChangesAsync();
+        return (match.AssignedDriver, wa);
     }
 
     /// <summary>Sürücü reddetti veya cevap vermedi: sıradakine yönlendir.</summary>
@@ -158,6 +194,13 @@ public class RideWatchdogService : BackgroundService
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var dispatch = scope.ServiceProvider.GetRequiredService<RideDispatchService>();
                 var now = DateTime.Now;
+
+                // Randevu saatine 20 dk kalan çağrıları otomatik olarak sıradaki sürücüye ilet
+                var dueScheduled = await db.RideRequests
+                    .Where(r => r.Status == RideStatus.Scheduled && r.ScheduledAt != null)
+                    .ToListAsync(stoppingToken);
+                foreach (var r in dueScheduled.Where(r => r.ScheduledAt!.Value <= now.AddMinutes(RideDispatchService.ScheduledLeadMinutes)))
+                    await dispatch.DispatchAsync(r);
 
                 var pending = await db.RideRequests.Include(r => r.AssignedDriver)
                     .Where(r => r.Status == RideStatus.Pending).ToListAsync(stoppingToken);

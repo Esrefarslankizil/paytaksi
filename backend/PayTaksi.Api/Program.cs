@@ -94,7 +94,11 @@ using (var scope = app.Services.CreateScope())
             "ALTER TABLE `RideRequests` ADD COLUMN `CancelReason` longtext NULL;",
             "ALTER TABLE `RideRequests` ADD COLUMN `DriverLat` double NULL;",
             "ALTER TABLE `RideRequests` ADD COLUMN `DriverLng` double NULL;",
-            "ALTER TABLE `RideRequests` ADD COLUMN `DriverLocationAt` datetime(6) NULL;"
+            "ALTER TABLE `RideRequests` ADD COLUMN `DriverLocationAt` datetime(6) NULL;",
+            "ALTER TABLE `RideRequests` ADD COLUMN `ScheduledAt` datetime(6) NULL;",
+            "ALTER TABLE `RideRequests` ADD COLUMN `IsShared` tinyint(1) NOT NULL DEFAULT 0;",
+            "ALTER TABLE `RideRequests` ADD COLUMN `PassengerCount` int NOT NULL DEFAULT 1;",
+            "ALTER TABLE `RideRequests` ADD COLUMN `SharedGroupId` varchar(64) NULL;"
         })
         {
             try { await db.Database.ExecuteSqlRawAsync(sql); } catch { }
@@ -118,7 +122,11 @@ using (var scope = app.Services.CreateScope())
             "ALTER TABLE \"RideRequests\" ADD COLUMN \"CancelReason\" TEXT NULL;",
             "ALTER TABLE \"RideRequests\" ADD COLUMN \"DriverLat\" REAL NULL;",
             "ALTER TABLE \"RideRequests\" ADD COLUMN \"DriverLng\" REAL NULL;",
-            "ALTER TABLE \"RideRequests\" ADD COLUMN \"DriverLocationAt\" TEXT NULL;"
+            "ALTER TABLE \"RideRequests\" ADD COLUMN \"DriverLocationAt\" TEXT NULL;",
+            "ALTER TABLE \"RideRequests\" ADD COLUMN \"ScheduledAt\" TEXT NULL;",
+            "ALTER TABLE \"RideRequests\" ADD COLUMN \"IsShared\" INTEGER NOT NULL DEFAULT 0;",
+            "ALTER TABLE \"RideRequests\" ADD COLUMN \"PassengerCount\" INTEGER NOT NULL DEFAULT 1;",
+            "ALTER TABLE \"RideRequests\" ADD COLUMN \"SharedGroupId\" TEXT NULL;"
         })
         {
             try { await db.Database.ExecuteSqlRawAsync(sql); } catch { }

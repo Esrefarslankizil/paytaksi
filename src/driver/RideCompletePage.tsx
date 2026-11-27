@@ -440,6 +440,8 @@ export default function RideCompletePage() {
                         <div className="pt-eyebrow">
                             <span className="pt-live" />
                             PayTaksi çağrı · #{rideId || "-"}
+                            {ride?.isShared ? ` · Paylaşımlı (${ride.passengerCount || 1} kişi)` : ""}
+                            {ride?.scheduledAt ? ` · Randevu ${new Date(ride.scheduledAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}` : ""}
                         </div>
                         <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-0.03em", marginTop: 2 }}>
                             {isCompleted ? "Yolculuk tamamlandı" : isCancelled ? "Yolculuk iptal edildi" : isRejected ? "Çağrı kapandı" : isHandedOver ? "Çağrı başka sürücüde" : isActiveRide ? (ride?.pickedUp ? "Yolcu araçta" : "Yolcuya gidiyorsunuz") : "Yeni taksi çağrısı"}

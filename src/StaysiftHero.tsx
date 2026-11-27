@@ -885,6 +885,10 @@ export default function StaysiftHero(props: HeroProps) {
     const [orderSuccess, setOrderSuccess] = React.useState(false)
     const [orderMode, setOrderMode] = React.useState<"member" | "cash">("member")
     const [callStep, setCallStep] = React.useState<"choose" | "cash-phone" | "topup">("choose")
+    const [rideWhen, setRideWhen] = React.useState<"now" | "schedule">("now")
+    const [scheduledAt, setScheduledAt] = React.useState<string>("")
+    const [isSharedRide, setIsSharedRide] = React.useState(false)
+    const [passengerCount, setPassengerCount] = React.useState(1)
     const [cashPhone, setCashPhone] = React.useState("")
     const [phoneErr, setPhoneErr] = React.useState<string | null>(null)
     const [searchWarn, setSearchWarn] = React.useState<string | null>(null)
@@ -4733,6 +4737,8 @@ export default function StaysiftHero(props: HeroProps) {
                         "Elysium Park AVM"
                     const rawFare = 50 + routeInfo.km * 45
                     const basePrice = Math.max(250, Math.round(rawFare / 5) * 5)
+                    const sharedUnitPrice = Math.max(120, Math.round((basePrice * 0.6) / 5) * 5)
+                    const effectivePrice = isSharedRide ? sharedUnitPrice * passengerCount : basePrice
                     const rawMemberPrice = Math.round(basePrice * 0.85)
                     // 10 TL yukarı yuvarlama (ör. 211 -> 220, 213 -> 220, 250 -> 250)
                     const memberPrice = Math.max(210, Math.ceil(rawMemberPrice / 10) * 10)
@@ -4779,7 +4785,10 @@ export default function StaysiftHero(props: HeroProps) {
                             destinationAddress: toName.replace(/[\r\n\t]+/g, " ").trim(),
                             destinationLat: toCoord[0],
                             destinationLng: toCoord[1],
-                            estimatedPrice: mode === "cash" ? basePrice : memberPrice,
+                            estimatedPrice: effectivePrice,
+                            scheduledAt: rideWhen === "schedule" && scheduledAt ? new Date(scheduledAt).toISOString() : null,
+                            isShared: isSharedRide,
+                            passengerCount: isSharedRide ? passengerCount : 1,
                             customerPhone:
                                 mode === "cash"
                                     ? cashPhone
@@ -4844,10 +4853,12 @@ export default function StaysiftHero(props: HeroProps) {
                                             </svg>
                                         </span>
                                         <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-0.03em" }}>
-                                            İsteğinizi aldık
+                                            {rideWhen === "schedule" ? "Randevunuz alındı" : "İsteğinizi aldık"}
                                         </div>
                                         <p style={{ margin: "8px auto 0", maxWidth: 320, fontSize: 13.5, lineHeight: 1.5, color: C.ink2 }}>
-                                            Sürücümüz size telefon numaranız üzerinden ulaşacaktır. 2 dakika içinde onaylanmazsa numaranıza bilgilendirme mesajı gönderilecektir.
+                                            {rideWhen === "schedule"
+                                                ? "Randevu saatinizden 20 dakika önce sürücümüz otomatik yönlendirilip telefon numaranız üzerinden size ulaşacaktır."
+                                                : "Sürücümüz size telefon numaranız üzerinden ulaşacaktır. 2 dakika içinde onaylanmazsa numaranıza bilgilendirme mesajı gönderilecektir."}
                                         </p>
                                         <button
                                             type="button"
@@ -5167,6 +5178,132 @@ export default function StaysiftHero(props: HeroProps) {
                                             </div>
                                         </div>
 
+                                        {/* Zaman & Yolculuk Tipi: Hemen / Randevu + Özel / Paylaşımlı */}
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setRideWhen("now")}
+                                                style={{
+                                                    padding: "9px 10px",
+                                                    borderRadius: 13,
+                                                    border: rideWhen === "now" ? `1.5px solid ${C.accent}` : "1px solid rgba(16,17,20,0.10)",
+                                                    background: rideWhen === "now" ? "rgba(58,58,244,0.10)" : "rgba(255,255,255,0.62)",
+                                                    color: rideWhen === "now" ? C.accent : C.ink,
+                                                    fontSize: 13,
+                                                    fontWeight: 700,
+                                                    cursor: "pointer",
+                                                }}
+                                            >
+                                                Hemen Çağır
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setRideWhen("schedule")
+                                                    if (!scheduledAt) {
+                                                        const d = new Date(Date.now() + 60 * 60 * 1000)
+                                                        d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15, 0, 0)
+                                                        const pad = (n: number) => String(n).padStart(2, "0")
+                                                        setScheduledAt(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`)
+                                                    }
+                                                }}
+                                                style={{
+                                                    padding: "9px 10px",
+                                                    borderRadius: 13,
+                                                    border: rideWhen === "schedule" ? `1.5px solid ${C.accent}` : "1px solid rgba(16,17,20,0.10)",
+                                                    background: rideWhen === "schedule" ? "rgba(58,58,244,0.10)" : "rgba(255,255,255,0.62)",
+                                                    color: rideWhen === "schedule" ? C.accent : C.ink,
+                                                    fontSize: 13,
+                                                    fontWeight: 700,
+                                                    cursor: "pointer",
+                                                }}
+                                            >
+                                                Randevu Al
+                                            </button>
+                                        </div>
+
+                                        {rideWhen === "schedule" && (
+                                            <label className="pt-tile" style={{ marginTop: 8, padding: "9px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                                                <span className="pt-label">Randevu Tarih / Saat</span>
+                                                <input
+                                                    type="datetime-local"
+                                                    value={scheduledAt}
+                                                    onChange={(e) => setScheduledAt(e.target.value)}
+                                                    style={{
+                                                        border: 0,
+                                                        outline: "none",
+                                                        background: "transparent",
+                                                        fontFamily: MONO,
+                                                        fontSize: 13,
+                                                        fontWeight: 600,
+                                                        color: C.ink,
+                                                    }}
+                                                />
+                                            </label>
+                                        )}
+
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsSharedRide(false)}
+                                                style={{
+                                                    padding: "9px 10px",
+                                                    borderRadius: 13,
+                                                    border: !isSharedRide ? `1.5px solid ${C.ink}` : "1px solid rgba(16,17,20,0.10)",
+                                                    background: !isSharedRide ? "rgba(16,17,20,0.08)" : "rgba(255,255,255,0.62)",
+                                                    color: C.ink,
+                                                    fontSize: 12.5,
+                                                    fontWeight: 700,
+                                                    cursor: "pointer",
+                                                }}
+                                            >
+                                                Özel Taksi · {basePrice} TL
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsSharedRide(true)}
+                                                style={{
+                                                    padding: "9px 10px",
+                                                    borderRadius: 13,
+                                                    border: isSharedRide ? "1.5px solid #0E8A5F" : "1px solid rgba(16,17,20,0.10)",
+                                                    background: isSharedRide ? "rgba(14,138,95,0.12)" : "rgba(255,255,255,0.62)",
+                                                    color: isSharedRide ? "#0E8A5F" : C.ink,
+                                                    fontSize: 12.5,
+                                                    fontWeight: 700,
+                                                    cursor: "pointer",
+                                                }}
+                                            >
+                                                Paylaşımlı · -%40
+                                            </button>
+                                        </div>
+
+                                        {isSharedRide && (
+                                            <div className="pt-tile" style={{ marginTop: 8, padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                                                <span style={{ fontSize: 12.5, fontWeight: 600, color: C.ink2 }}>Koltuk sayısı ({sharedUnitPrice} TL/kişi)</span>
+                                                <div style={{ display: "flex", gap: 6 }}>
+                                                    {[1, 2].map((n) => (
+                                                        <button
+                                                            key={n}
+                                                            type="button"
+                                                            onClick={() => setPassengerCount(n)}
+                                                            style={{
+                                                                padding: "4px 10px",
+                                                                borderRadius: 999,
+                                                                border: passengerCount === n ? "1px solid #0E8A5F" : "1px solid rgba(16,17,20,0.14)",
+                                                                background: passengerCount === n ? "#0E8A5F" : "#fff",
+                                                                color: passengerCount === n ? "#fff" : C.ink,
+                                                                fontSize: 12,
+                                                                fontWeight: 700,
+                                                                cursor: "pointer",
+                                                            }}
+                                                        >
+                                                            {n} Kişi
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* Ücret */}
                                         <div
                                             className="pt-tile"
@@ -5174,14 +5311,14 @@ export default function StaysiftHero(props: HeroProps) {
                                         >
                                             <div>
                                                 <div className="pt-label">
-                                                    Sabit ücret · {routeInfo.km} km (~{routeInfo.min} dk)
+                                                    {isSharedRide ? `Paylaşımlı (${passengerCount} kişi)` : "Sabit ücret"} · {routeInfo.km} km (~{routeInfo.min} dk)
                                                 </div>
                                                 <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 600, letterSpacing: "-0.03em", marginTop: 2 }}>
-                                                    {basePrice} TL
+                                                    {effectivePrice} TL
                                                 </div>
                                             </div>
                                             <span className="pt-pill" style={{ background: "rgba(22, 163, 74, 0.09)", borderColor: "rgba(22, 163, 74, 0.22)" }}>
-                                                <b style={{ color: "#15803d" }}>Nakit</b>
+                                                <b style={{ color: "#15803d" }}>{rideWhen === "schedule" ? "Randevu" : "Nakit"}</b>
                                             </span>
                                         </div>
 

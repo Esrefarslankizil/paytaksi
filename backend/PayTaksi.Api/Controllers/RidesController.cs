@@ -19,7 +19,10 @@ public record CreateRideDto(
     string PaymentType = "Nakit",
     double? DestinationLat = null,
     double? DestinationLng = null,
-    decimal? EstimatedPrice = null
+    decimal? EstimatedPrice = null,
+    DateTime? ScheduledAt = null,
+    bool IsShared = false,
+    int PassengerCount = 1
 );
 
 public record DriverLocationDto(double Lat, double Lng);
@@ -103,6 +106,10 @@ public class RidesController : ControllerBase
             r.CreatedAt,
             r.CompletedAt,
             r.CancelReason,
+            r.ScheduledAt,
+            r.IsShared,
+            r.PassengerCount,
+            r.SharedGroupId,
             driver = r.AssignedDriver is null ? null : new { r.AssignedDriver.Id, r.AssignedDriver.FullName, r.AssignedDriver.Plate }
         }));
     }
@@ -124,6 +131,7 @@ public class RidesController : ControllerBase
             }
         }
 
+        var isFutureSchedule = dto.ScheduledAt.HasValue && dto.ScheduledAt.Value > DateTime.Now.AddMinutes(RideDispatchService.ScheduledLeadMinutes);
         var ride = new RideRequest
         {
             PickupAddress = dto.PickupAddress,
@@ -135,19 +143,31 @@ public class RidesController : ControllerBase
             EstimatedPrice = dto.EstimatedPrice is > 0 ? dto.EstimatedPrice.Value : 250,
             CustomerPhone = dto.CustomerPhone,
             PaymentType = dto.PaymentType,
-            Status = RideStatus.Pending,
+            ScheduledAt = dto.ScheduledAt,
+            IsShared = dto.IsShared,
+            PassengerCount = Math.Clamp(dto.PassengerCount, 1, 3),
+            Status = isFutureSchedule ? RideStatus.Scheduled : RideStatus.Pending,
             CreatedAt = DateTime.Now,
         };
         _db.RideRequests.Add(ride);
         await _db.SaveChangesAsync();
 
-        var (driver, wa) = await _dispatch.DispatchAsync(ride);
+        Driver? driver = null;
+        WhatsAppSendResult? wa = null;
+        if (!isFutureSchedule)
+        {
+            var matched = await _dispatch.TryMatchSharedAsync(ride);
+            (driver, wa) = matched ?? await _dispatch.DispatchAsync(ride);
+        }
 
         return Ok(new
         {
             rideId = ride.Id,
             trackToken = ride.TrackToken,
             status = ride.Status,
+            scheduledAt = ride.ScheduledAt,
+            isShared = ride.IsShared,
+            sharedGroupId = ride.SharedGroupId,
             trackUrl = $"/takip?id={ride.Id}&t={ride.TrackToken}",
             actionUrl = $"https://paytaksi.com.tr/yolculuk-tamamla?id={ride.Id}",
             driver = driver is null ? null : new { driver.FullName, driver.Plate, driver.Station, driver.IsBusy },
@@ -212,6 +232,11 @@ public class RidesController : ControllerBase
             ride.PaymentType,
             ride.Status,
             ride.CreatedAt,
+            ride.DispatchedAt,
+            ride.ScheduledAt,
+            ride.IsShared,
+            ride.PassengerCount,
+            ride.SharedGroupId,
             pickedUp = ride.PickedUpAt.HasValue,
             ride.CancelReason,
             driver = ride.AssignedDriver is null ? null : new
